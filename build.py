@@ -1,6 +1,7 @@
 import os
 import sys
 import PyInstaller.__main__
+
 from PIL import Image, ImageDraw, ImageFont
 
 def create_icon():
@@ -9,16 +10,17 @@ def create_icon():
     size = (256, 256)
     icon = Image.new('RGB', size, 'black')
     draw = ImageDraw.Draw(icon)
-    
+
+    # Unicode for music note
+    music_note = "♪"    
+
     try:
         # Try to use a font that has music note symbol
         font = ImageFont.truetype("arial.ttf", 150)
-        # Unicode for music note
-        music_note = "♪"
+
     except:
         # Fallback if font not found
         font = ImageFont.load_default()
-        music_note = "♪"
     
     # Get text size
     text_bbox = draw.textbbox((0, 0), music_note, font=font)
@@ -38,6 +40,7 @@ def create_icon():
     icon.save(icon_path, format='ICO')
     
     return icon_path
+
 
 def build_exe():
     """Build the executable using PyInstaller"""
@@ -111,4 +114,4 @@ if __name__ == "__main__":
     # Build the executable
     build_exe()
     
-    print("\nBuild complete! Executable is in the dist folder.") 
+    print("\nBuild complete! Executable is in the dist folder.")
