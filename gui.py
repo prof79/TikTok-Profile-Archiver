@@ -148,8 +148,8 @@ class TikTokBackupGUI:
         self.github_btn.pack(side="right", padx=5)
         
         # Separator
-        separator2 = ctk.CTkLabel(right_frame, text="|", text_color=COLORS['text_gray'])
-        separator2.pack(side="right", padx=5)
+        #separator1 = ctk.CTkLabel(right_frame, text="|", text_color=COLORS['text_gray'])
+        #separator1.pack(side="right", padx=5)
 
 
     def setup_main_content(self):
@@ -296,7 +296,7 @@ class TikTokBackupGUI:
         # Coming soon title
         title_label = ctk.CTkLabel(
             coming_soon_frame,
-            text=f"{section.title()} - Coming Soon!",
+            text=f"{section.title()} - Not Available Yet",
             font=("TkDefaultFont", 24, "bold"),
             text_color=COLORS['text_white']
         )
@@ -306,21 +306,14 @@ class TikTokBackupGUI:
         features = {
             "videos": [
                 "📥 Bulk video downloads",
-                "🎵 Music extraction",
-                "📊 Video analytics",
-                "🏷️ Advanced tagging"
             ],
             "settings": [
                 "⚙️ Customize backup options",
                 "📁 Set default save locations",
-                "🔄 Auto-backup scheduling",
-                "🎨 Theme customization"
             ],
             "help": [
                 "📚 User documentation",
                 "❓ FAQ section",
-                "🎥 Video tutorials",
-                "📧 Support contact"
             ]
         }
         
