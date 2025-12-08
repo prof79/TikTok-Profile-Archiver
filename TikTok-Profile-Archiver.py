@@ -3,13 +3,36 @@ import sys
 import time
 import requests
 import subprocess
+
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
+
 from selenium import webdriver
 from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+
+def clean_user_name(user_name: str) -> str:
+    return user_name \
+        .strip() \
+        .replace('https://www.tiktok.com/', '') \
+        .replace('/', '') \
+        .lstrip('@')
+
+
+def install_dependencies():
+    """Installs required dependencies."""
+
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "yt-dlp"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "selenium"])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+
+    except Exception as e:
+        print(f"Error installing dependencies: {str(e)}")
+
 
 def display_welcome_message():
     print("""
@@ -35,14 +58,28 @@ This allows for:
 - Automated scheduled backups
 """)
 
-def install_dependencies():
-    """Install required dependencies"""
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "yt-dlp"])
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "selenium"])
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
-    except Exception as e:
-        print(f"Error installing dependencies: {str(e)}")
+
+def get_user_choices():
+
+    print("\nEnter TikTok profile Usernames (separated by commas): https://www.tiktok.com/@", end="")
+    
+    usernames_input = input().strip()
+
+    usernames = [clean_user_name(username) for username in usernames_input.split(',')]
+    
+    print("""
+Select backup options (enter numbers separated by commas):
+1. Reposts
+2. Favorites
+3. Liked videos
+4. All of the above
+5. None of the above (just profile backup)
+
+Enter your choices (e.g., 1,2,3,4 or 5): """, end="")
+    
+    choices = input().strip()
+
+    return usernames, choices
 
 
 def setup_chrome_profile() -> WebDriver:
@@ -97,8 +134,16 @@ def handle_empty_directory(directory, message="No content was found to scrape fo
         with open(os.path.join(directory, "Nothing to Scrape.txt"), 'w', encoding='utf-8') as f:
             f.write(message)
 
-def create_backup_structure(username):
-    """Create the backup directory structure and handle empty folders"""
+
+def create_backup_structure(username: str) -> str:
+    """Creates the backup directory structure and handles empty folders.
+    
+    :param username: TikTok user name. Will be sanitized.
+    :type username: str
+
+    :return: The backup directory base path for the given user.
+    :rtype: str
+    """
     # Sorry, this is stupid, not sort-friendly plus include time
     # Format the date as before
     # date_str = datetime.now().strftime("%B %d")
@@ -111,18 +156,15 @@ def create_backup_structure(username):
 
     date_str = datetime.now().strftime('%Y-%m-%d_%H%M')
 
-    # Clean up username
-    clean_username = username.replace('https://www.tiktok.com/', '').replace('/', '')
-
     # People often use _ at the end so this is a bad separator
-    #base_dir = f"@{clean_username}_{date_str}"
-    base_dir = f"@{clean_username} {date_str}"
+    #base_dir = f"@{username}_{date_str}"
+    base_dir = f"@{username} {date_str}"
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(script_dir, base_dir)
     
     # Updated directory structure without comments folder
-    directories = {
+    directories: dict[str, dict[str, Any]] = {
         "01_profile": {
             "path": os.path.join(base_dir, "01_profile"),
             "subdirs": ["01_avatar", "02_bio", "03_stats"],
@@ -160,31 +202,16 @@ def create_backup_structure(username):
     
     # Create directories
     for dir_info in directories.values():
+
         os.makedirs(dir_info["path"], exist_ok=True)
+        
         if "subdirs" in dir_info:
             for subdir in dir_info["subdirs"]:
                 os.makedirs(os.path.join(dir_info["path"], subdir), exist_ok=True)
+        
         handle_empty_directory(dir_info["path"], dir_info["message"])
     
     return base_dir
-
-def get_user_choices():
-    print("\nEnter TikTok profile Usernames (separated by commas): https://www.tiktok.com/@", end="")
-    usernames_input = input().strip()
-    usernames = [username.strip() for username in usernames_input.split(',')]
-    
-    print("""
-Select backup options (enter numbers separated by commas):
-1. Reposts
-2. Favorites
-3. Liked videos
-4. All of the above
-5. None of the above (just profile backup)
-
-Enter your choices (e.g., 1,2,3,4 or 5): """, end="")
-    
-    choices = input().strip()
-    return usernames, choices
 
 
 # Function declaration "download_video" is obscured by a declaration of the same name (Pylance)
@@ -201,6 +228,133 @@ def download_video(url, output_path) -> bool:
     except Exception as e:
         #print(f"Failed to download video: {str(e)}")
         return False
+
+
+def save_videos(driver, base_dir: str, video_elements, folder_name: str='04_videos') -> None:  
+
+    for idx, video in enumerate(video_elements, 1):
+        try:
+            print(f"\nProcessing video {idx}/{len(video_elements)}")
+            
+            # Get video link
+            video_link = video.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+            
+            # Create initial folder name (without private suffix)
+            base_video_path = os.path.join(base_dir, "04_videos", f"video_{idx}")
+
+            video_path = os.path.join(base_video_path, "video.mp4")
+
+            os.makedirs(base_video_path, exist_ok=True)
+
+            # try:
+            #     subprocess.run([
+            #         'yt-dlp',
+            #         '--no-warnings',
+            #         '--quiet',
+            #         '-o', os.path.join(base_video_path, "video.mp4"),
+            #         video_link
+            #     ], check=True)
+            #     download_success = True
+            #     print(f"Successfully downloaded video {idx}")
+            # except Exception as e:
+            #     print(f"Error downloading video {idx}: {str(e)}")
+            #     download_success = False
+
+            download_success = download_video(video_link, video_path)
+
+            if download_success:
+                print(f"Successfully downloaded video {idx}")
+
+            else:
+                print(f"Error downloading video {idx}")
+            
+            # Determine final folder name based on download success
+            final_folder_name = f"video_{idx}_PRIVATE-VIDEO" if not download_success else f"video_{idx}"
+            final_path = os.path.join(base_dir, "04_videos", final_folder_name)
+            
+            # If the folder exists with a different name, rename it
+            if os.path.exists(base_video_path) and not download_success:
+                os.rename(base_video_path, final_path)
+
+            elif not os.path.exists(final_path):
+                os.makedirs(final_path, exist_ok=True)
+            
+            # Now open video in new tab to get metadata
+            original_window = driver.current_window_handle
+
+            driver.execute_script("window.open('');")
+            driver.switch_to.window(driver.window_handles[-1])
+            driver.get(video_link)
+
+            # Wait for video page to load
+            time.sleep(3)
+            
+            try:
+                # Get metadata
+                username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(1)").text
+                date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(3)").text
+                description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='browse-video-desc']").text
+                sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='browse-music']").text
+                
+                # Check if video is private
+                is_private = False
+
+                try:
+                    private_element = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='private-video']")
+                    privacy = "Private Video"
+                    is_private = True
+                except:
+                    privacy = "Public Video"
+                
+                # Get comments
+                try:
+                    comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='browse-comment-count']").text
+                    comments = []
+
+                    if int(comment_count.replace(',', '')) > 0:
+                        # TODO: Is driver.find_element correct or should it be comment_count.find_element?
+                        comment_text = driver.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-level-1'] > span").text
+                        comments.append(comment_text)
+                except:
+                    comment_count = "0"
+                    comments = []
+                
+                # Save metadata
+                with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
+                    f.write(f"@{username}\n")
+                    f.write("·\n")
+                    f.write(f"Date - {date}\n")
+                    f.write("·\n")
+                    f.write(f"{privacy}\n")
+                    f.write(".\n")
+                    f.write("URL: \n")
+                    f.write(f"{video_link}\n\n")
+                    f.write("Video Caption Description:\n")
+                    f.write(f"{description}\n")
+                    f.write(f"{sound}\n")
+                    f.write(f"{comment_count} comment\n\n")
+                    f.write("comments:\n")
+                    if comments:
+                        for comment in comments:
+                            f.write(f"{comment}\n")
+                    else:
+                        f.write("(no comments available)\n")
+                
+            except Exception as e:
+                print(f"Error getting video metadata: {str(e)}")
+                # Save at least the URL if metadata fails
+                with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
+                    f.write(f"Video URL: {video_link}\n")
+            
+            finally:
+                # Close video tab and return to main window
+                driver.close()
+                driver.switch_to.window(original_window)
+            
+        except Exception as e:
+            print(f"Error processing video {idx}: {str(e)}")
+            continue
+
 
 def handle_tiktok_page_load(driver, url):
     try:
@@ -225,8 +379,10 @@ def handle_tiktok_page_load(driver, url):
         print(f"Error loading page: {str(e)}")
         return False
 
+
 def scrape_profile_info(driver, base_dir):
     print("\nScraping profile information...")
+
     try:
         # Wait longer for the page to fully load
         time.sleep(5)
@@ -265,6 +421,7 @@ def scrape_profile_info(driver, base_dir):
         
         # Save bio and stats as plain text
         bio_path = os.path.join(base_dir, "01_profile", "02_bio", "bio.txt")
+
         with open(bio_path, 'w', encoding='utf-8') as f:
             f.write(f"{following}\nFollowing\n{followers}\nFollowers\n{likes}\nLikes\n{bio}\n{website}")
         
@@ -317,8 +474,34 @@ def scrape_profile_info(driver, base_dir):
         return False
 
 
+def scrape_pinned_videos(driver, base_dir):
+    print("\nScraping pinned videos...")
+
+    try:
+        # Wait for video grid to load
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']"))
+        )
+        
+        # Get first 3 videos (pinned)
+        video_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")[:3]
+
+        print(f"\nFound {len(video_elements)} pinned videos")
+
+        save_videos(driver, base_dir, video_elements, folder_name='02_pinned_videos')
+
+        print("\nPinned videos scraped successfully!")
+
+        return True
+        
+    except Exception as e:
+        print(f"Error scraping pinned videos: {str(e)}")
+        return False
+
+
 def scrape_videos(driver, base_dir):
     print("\nScraping videos...")
+    
     try:
         # Wait for initial video grid to load
         WebDriverWait(driver, 10).until(
@@ -356,144 +539,16 @@ def scrape_videos(driver, base_dir):
         total_videos = len(video_elements)
 
         print(f"\nFound {total_videos} videos total")
-        
-        # Process videos
-        for idx, video in enumerate(video_elements, 1):
-            try:
-                print(f"\nProcessing video {idx}/{total_videos}")
-                
-                # Get video link
-                video_link = video.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                
-                # Create initial folder name (without private suffix)
-                base_video_path = os.path.join(base_dir, "04_videos", f"video_{idx}")
 
-                video_path = os.path.join(base_video_path, "video.mp4")
+        save_videos(driver, base_dir, video_elements)
 
-                # Try to download video first before creating any folders
-                download_success = False
-
-                # try:
-                #     os.makedirs(base_video_path, exist_ok=True)
-                #     subprocess.run([
-                #         'yt-dlp',
-                #         '--no-warnings',
-                #         '--quiet',
-                #         '-o', os.path.join(base_video_path, "video.mp4"),
-                #         video_link
-                #     ], check=True)
-                #     download_success = True
-                #     print(f"Successfully downloaded video {idx}")
-                # except Exception as e:
-                #     print(f"Error downloading video {idx}: {str(e)}")
-                #     download_success = False
-
-                os.makedirs(base_video_path, exist_ok=True)
-
-                download_success = download_video(video_link, video_path)
-
-                if download_success:
-                    print(f"Successfully downloaded video {idx}")
-                else:
-                    print(f"Error downloading video {idx}")
-                
-                # Determine final folder name based on download success
-                final_folder_name = f"video_{idx}_PRIVATE-VIDEO" if not download_success else f"video_{idx}"
-                final_path = os.path.join(base_dir, "04_videos", final_folder_name)
-                
-                # If the folder exists with a different name, rename it
-                if os.path.exists(base_video_path) and not download_success:
-                    os.rename(base_video_path, final_path)
-                elif not os.path.exists(final_path):
-                    os.makedirs(final_path, exist_ok=True)
-                
-                # Now open video in new tab to get metadata
-                original_window = driver.current_window_handle
-                driver.execute_script("window.open('');")
-                driver.switch_to.window(driver.window_handles[-1])
-                driver.get(video_link)
-                time.sleep(3)
-                
-                try:
-                    # Get metadata
-                    # TODO: Code duplication!!!
-                    #username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='video-author-nickname']").text
-                    #date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname']").text
-                    username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(1)").text
-                    date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(3)").text
-                    #description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='video-desc']").text
-                    description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='browse-video-desc']").text
-                    #sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='video-music']").text
-                    sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='browse-music']").text
-                    
-                    # Check if video is private
-                    is_private = False
-                    try:
-                        private_element = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='private-video']")
-                        privacy = "Private Video"
-                        is_private = True
-                    except:
-                        privacy = "Public Video"
-                    
-                    # Get comments
-                    # TODO: Code duplication!!!
-                    try:
-                        #comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='comment-count']").text
-                        comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='browse-comment-count']").text
-                        comments = []
-                        if int(comment_count.replace(',', '')) > 0:
-                            #comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-e2e='comment-level-1']")
-                            #for comment in comment_elements:
-                            #    comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-text']").text
-                            #    comments.append(comment_text)
-                            comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-level-1'] > span").text
-                            comments.append(comment_text)
-                    except:
-                        comment_count = "0"
-                        comments = []
-                    
-                    # Save metadata
-                    with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
-                        f.write(f"@{username}\n")
-                        f.write("·\n")
-                        f.write(f"Date - {date}\n")
-                        f.write("·\n")
-                        f.write(f"{privacy}\n")
-                        f.write(".\n")
-                        f.write("URL: \n")
-                        f.write(f"{video_link}\n\n")
-                        f.write("Video Caption Description:\n")
-                        f.write(f"{description}\n")
-                        f.write(f"{sound}\n")
-                        f.write(f"{comment_count} comment\n\n")
-                        f.write("comments:\n")
-                        if comments:
-                            for comment in comments:
-                                f.write(f"{comment}\n")
-                        else:
-                            f.write("(no comments available)\n")
-                    
-                except Exception as e:
-                    print(f"Error getting video metadata: {str(e)}")
-                    # Save at least the URL if metadata fails
-                    with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
-                        f.write(f"Video URL: {video_link}\n")
-                
-                finally:
-                    # Close video tab and return to main window
-                    driver.close()
-                    driver.switch_to.window(original_window)
-                
-            except Exception as e:
-                print(f"Error processing video {idx}: {str(e)}")
-                continue
-        
         print("\nVideos scraped successfully!")
         return True
         
     except Exception as e:
         print(f"Error scraping videos: {str(e)}")
         return False
+
 
 def get_video_without_watermark(video_url: str) -> Optional[str]:
     """Download video without watermark using yt-dlp"""
@@ -536,139 +591,6 @@ def get_video_without_watermark(video_url: str) -> Optional[str]:
 #     except Exception as e:
 #         raise Exception(f"Failed to download video: {str(e)}")
 
-def scrape_pinned_videos(driver, base_dir):
-    print("\nScraping pinned videos...")
-    try:
-        # Wait for video grid to load
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']"))
-        )
-        
-        # Get first 3 videos (pinned)
-        video_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")[:3]
-        print(f"\nFound {len(video_elements)} pinned videos")
-        
-        # Process pinned videos
-        for idx, video in enumerate(video_elements, 1):
-            try:
-                print(f"\nProcessing pinned video {idx}/3")
-                
-                # Get video link
-                video_link = video.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
-                
-                # Create base video directory name
-                base_video_path = os.path.join(base_dir, "02_pinned_videos", f"pinned_{idx}")
-                os.makedirs(base_video_path, exist_ok=True)
-                
-                # Try to download video
-
-                # try:
-                #     subprocess.run([
-                #         'yt-dlp',
-                #         '--no-warnings',
-                #         '--quiet',
-                #         '-o', os.path.join(base_video_path, "video.mp4"),
-                #         video_link
-                #     ], check=True)
-                #     print(f"Successfully downloaded pinned video {idx}")
-                # except Exception as e:
-                #     print(f"Error downloading pinned video {idx}: {str(e)}")
-
-                video_path = os.path.join(base_video_path, "video.mp4")
-
-                download_success = download_video(video_link, video_path)
-
-                if download_success:
-                    print(f"Successfully downloaded pinned video {idx}")
-                else:
-                    print(f"Error downloading pinned video {idx}")
-                
-                # Now open video in new tab to get metadata
-                original_window = driver.current_window_handle
-                driver.execute_script("window.open('');")
-                driver.switch_to.window(driver.window_handles[-1])
-                driver.get(video_link)
-                time.sleep(3)  # Wait for video page to load
-                
-                try:
-                    # Get metadata
-                    # TODO: Code duplication!!!
-                    #username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='video-author-nickname']").text
-                    #date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname']").text
-                    username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(1)").text
-                    date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(3)").text
-                    #description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='video-desc']").text
-                    description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='browse-video-desc']").text
-                    #sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='video-music']").text
-                    sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='browse-music']").text
-
-                    # Get comments
-                    # TODO: Code duplication!!!
-                    try:
-                        #comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='comment-count']").text
-                        comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='browse-comment-count']").text
-                        comments = []
-                        if int(comment_count.replace(',', '')) > 0:
-                            #comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-e2e='comment-level-1']")
-                            #for comment in comment_elements:
-                            #    comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-text']").text
-                            #    comments.append(comment_text)
-                            comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-level-1'] > span").text
-                            comments.append(comment_text)
-                    except:
-                        comment_count = "0"
-                        comments = []
-                    
-                    # Check if we need to rename the folder due to failed download
-                    if not download_success and os.path.exists(base_video_path):
-                        # Only rename if video.mp4 doesn't exist in the folder
-                        if not os.path.exists(os.path.join(base_video_path, "video.mp4")):
-                            new_path = f"{base_video_path}_PRIVATE-VIDEO"
-                            os.rename(base_video_path, new_path)
-                            base_video_path = new_path
-                    
-                    # Save metadata
-                    with open(os.path.join(base_video_path, "info.txt"), 'w', encoding='utf-8') as f:
-                        f.write(f"@{username}\n")
-                        f.write("·\n")
-                        f.write(f"Date - {date}\n")
-                        f.write("·\n")
-                        f.write("Private Video\n" if not download_success else "Public Video\n")
-                        f.write(".\n")
-                        f.write("URL: \n")
-                        f.write(f"{video_link}\n\n")
-                        f.write("Video Caption Description:\n")
-                        f.write(f"{description}\n")
-                        f.write(f"{sound}\n")
-                        f.write(f"{comment_count} comment\n\n")
-                        f.write("comments:\n")
-                        if comments:
-                            for comment in comments:
-                                f.write(f"{comment}\n")
-                        else:
-                            f.write("(no comments available)\n")
-                    
-                except Exception as e:
-                    print(f"Error getting video metadata: {str(e)}")
-                    # Save at least the URL if metadata fails
-                    with open(os.path.join(base_video_path, "info.txt"), 'w', encoding='utf-8') as f:
-                        f.write(f"Video URL: {video_link}\n")
-                
-                finally:
-                    # Close video tab and return to channel page
-                    driver.close()
-                    driver.switch_to.window(original_window)
-                
-            except Exception as e:
-                print(f"Error processing pinned video {idx}: {str(e)}")
-                continue
-        
-        print("\nPinned videos scraped successfully!")
-        return True
-        
-    except Exception as e:
-        print(f"Error scraping pinned videos: {str(e)}")
-        return False
 
 def main():
     # Clear the screen first
@@ -687,13 +609,13 @@ def main():
     # Get user input
     usernames, choices = get_user_choices()
     
-    # Initialize browser
-    print("\nInitializing browser...")
-    driver = setup_chrome_profile()
-    
     try:
         # Process each username
         for i, username in enumerate(usernames, 1):
+            # Initialize browser per user to prevent long-run crashes and memory issues
+            print("\nInitializing browser...")
+            driver = setup_chrome_profile()
+
             print(f"\nProcessing account {i}/{len(usernames)}: @{username}")
             
             # Create backup directory structure
@@ -701,6 +623,7 @@ def main():
             
             # Navigate to profile with handling for automation detection
             profile_url = f"https://www.tiktok.com/@{username}"
+
             if not handle_tiktok_page_load(driver, profile_url):
                 print(f"Failed to load TikTok page for @{username}, skipping to next account...")
                 continue
@@ -718,11 +641,14 @@ def main():
                 print(f"Warning: Failed to scrape videos for @{username}")
             
             print(f"\nBackup completed for @{username}")
+
+            driver.quit()
         
         print("\nAll accounts processed successfully!")
         
     except Exception as e:
         print(f"An error occurred: {str(e)}")
+
     finally:
         if driver:
             driver.quit()
