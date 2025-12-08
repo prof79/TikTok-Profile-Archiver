@@ -1,3 +1,5 @@
+#region Imports
+
 import customtkinter as ctk
 import sys
 import threading
@@ -15,6 +17,9 @@ from src.tt_backup import (
     install_dependencies,
 )
 
+#endregion
+
+#region Constants
 
 # TikTok-themed colors
 COLORS = {
@@ -28,6 +33,10 @@ COLORS = {
     'nav_dark': '#1A1A1A'
 }
 
+#endregion
+
+#region Application GUI Class
+
 class TikTokBackupGUI:
     def __init__(self):
         self.root = ctk.CTk()
@@ -40,21 +49,8 @@ class TikTokBackupGUI:
         ctk.set_default_color_theme("dark-blue")
         
         self.setup_gui()
-        
-        # Show activation wizard on first run
-        try:
-            from src.licensing.license_manager import LicenseManager
-            from src.licensing.activation_wizard import ActivationWizard
-            
-            self.license_manager = LicenseManager()
-            status = self.license_manager.check_license_status()
-            
-            if status['status'] == 'unlicensed':
-                self.show_activation_wizard()
-        except ImportError as e:
-            print(f"License management modules not found: {e}")
-            print("Running in unrestricted mode")
-        
+
+
     def setup_gui(self):
         # Create main container with grid
         self.root.grid_rowconfigure(1, weight=1)
@@ -68,7 +64,8 @@ class TikTokBackupGUI:
         
         # Create main content area
         self.setup_main_content()
-        
+
+
     def setup_sidebar(self):
         # Sidebar frame with no rounded corners
         self.sidebar = ctk.CTkFrame(
@@ -112,7 +109,8 @@ class TikTokBackupGUI:
                 command=lambda c=cmd: self.nav_button_click(c)
             )
             btn.pack(fill="x", padx=10, pady=5)
-            
+
+     
     def setup_navbar(self):
         # Top navbar - attached to sidebar with no rounded corners
         self.navbar = ctk.CTkFrame(
@@ -152,127 +150,7 @@ class TikTokBackupGUI:
         # Separator
         separator2 = ctk.CTkLabel(right_frame, text="|", text_color=COLORS['text_gray'])
         separator2.pack(side="right", padx=5)
-        
-        # Purchase button
-        self.purchase_btn = ctk.CTkButton(
-            right_frame,
-            text="Purchase",
-            fg_color=COLORS['accent_pink'],
-            hover_color="#D42B4C",
-            width=80,
-            height=30,
-            command=self.open_purchase
-        )
-        self.purchase_btn.pack(side="right", padx=5)
-        
-        # Separator
-        separator1 = ctk.CTkLabel(right_frame, text="|", text_color=COLORS['text_gray'])
-        separator1.pack(side="right", padx=5)
-        
-        # License status with clickable behavior
-        self.license_status = ctk.CTkLabel(
-            right_frame,
-            text="Trial Mode 7 days left",
-            text_color="#FFD700",
-            cursor="hand2"
-        )
-        self.license_status.pack(side="right", padx=5)
-        self.license_status.bind("<Button-1>", self.show_license_details)
-        
-        # Update the status periodically to ensure it stays visible
-        def update_status():
-            self.license_status.configure(text="Trial Mode 7 days left")
-            self.root.after(1000, update_status)  # Check every second
-        
-        # Start the periodic update
-        update_status()
 
-    def update_license_status(self):
-        """Update the license status display"""
-        try:
-            if hasattr(self, 'license_manager'):
-                status = self.license_manager.check_license_status()
-                
-                # Always show trial mode
-                text = f"Trial Mode {status.get('days_left', 7)} days left"
-                color = "#FFD700"  # Yellow color for trial status
-                
-            self.license_status.configure(text=text, text_color=color)
-            
-        except Exception as e:
-            print(f"Error updating license status: {e}")
-            self.license_status.configure(text="Trial Mode 7 days left", text_color="#FFD700")
-
-    def show_license_details(self, event=None):
-        """Show license details in a popup window"""
-        # Create popup window with more reasonable size
-        popup = ctk.CTkToplevel(self.root)
-        popup.title("License Information")
-        
-        # Set minimum size to ensure it can't be smaller
-        popup.minsize(600, 400)
-        
-        # Set fixed size and disable resizing
-        popup.geometry("600x400")
-        popup.resizable(False, False)
-        
-        popup.configure(fg_color='#0F0F0F')
-        
-        # Center the popup
-        screen_width = popup.winfo_screenwidth()
-        screen_height = popup.winfo_screenheight()
-        x = (screen_width - 600) // 2
-        y = (screen_height - 400) // 2
-        popup.geometry(f"600x400+{x}+{y}")
-        
-        # Make window modal
-        popup.transient(self.root)
-        popup.grab_set()
-        
-        # Main container with padding
-        container = ctk.CTkFrame(popup, fg_color='#0F0F0F')
-        container.pack(expand=True, fill="both", padx=40, pady=30)
-        
-        # Title
-        title = ctk.CTkLabel(
-            container,
-            text="Trial License Details",
-            font=("Arial", 28, "bold"),  # Slightly smaller font
-            text_color="white"
-        )
-        title.pack(pady=(0, 40))
-        
-        # Information frame with dark background
-        info_frame = ctk.CTkFrame(container, fg_color='#000000')
-        info_frame.pack(fill="both", expand=True, padx=20)
-        
-        # Information labels with appropriate font size
-        expiration = ctk.CTkLabel(
-            info_frame,
-            text="Expiration Date: March 11, 2025 02:30 PM",
-            font=("Arial", 20),  # Adjusted font size
-            text_color="#FFD700",
-            anchor="w"
-        )
-        expiration.pack(anchor="w", padx=30, pady=(35, 25))
-        
-        days = ctk.CTkLabel(
-            info_frame,
-            text="Days Remaining: 7",
-            font=("Arial", 20),
-            text_color="#FFD700",
-            anchor="w"
-        )
-        days.pack(anchor="w", padx=30, pady=25)
-        
-        device = ctk.CTkLabel(
-            info_frame,
-            text="Device Name: KayWat-Alienware",
-            font=("Arial", 20),
-            text_color="#FFD700",
-            anchor="w"
-        )
-        device.pack(anchor="w", padx=30, pady=(25, 35))
 
     def setup_main_content(self):
         # Main content area
@@ -381,7 +259,8 @@ class TikTokBackupGUI:
             hover_color='#3A3A3A'
         )
         self.cancel_button.pack(side="left", padx=5)
-        
+
+
     def nav_button_click(self, section):
         """Handle navigation button clicks"""
         # Update page title
@@ -398,6 +277,7 @@ class TikTokBackupGUI:
         else:
             # Show coming soon message for other sections
             self.show_coming_soon(section)
+
 
     def show_coming_soon(self, section):
         """Display coming soon message for unimplemented sections"""
@@ -456,33 +336,7 @@ class TikTokBackupGUI:
                     text_color=COLORS['text_gray']
                 )
                 feature_label.pack(pady=5)
-        
-        # Notification signup
-        notify_frame = ctk.CTkFrame(coming_soon_frame, fg_color="transparent")
-        notify_frame.pack(pady=30)
-        
-        notify_label = ctk.CTkLabel(
-            notify_frame,
-            text="Get notified when this feature launches:",
-            text_color=COLORS['text_white']
-        )
-        notify_label.pack(pady=5)
-        
-        email_entry = ctk.CTkEntry(
-            notify_frame,
-            placeholder_text="Enter your email",
-            width=300
-        )
-        email_entry.pack(pady=5)
-        
-        notify_btn = ctk.CTkButton(
-            notify_frame,
-            text="Notify Me",
-            fg_color=COLORS['accent_pink'],
-            hover_color='#D42B4C',
-            command=lambda: self.handle_notify(email_entry.get(), section)
-        )
-        notify_btn.pack(pady=5)
+
 
     def show_profile_content(self):
         """Show the profile backup interface"""
@@ -501,15 +355,6 @@ class TikTokBackupGUI:
         # Buttons
         self.button_frame.pack(fill="x", pady=10)
 
-    def handle_notify(self, email, section):
-        """Handle notification signup"""
-        if '@' in email and '.' in email:
-            messagebox.showinfo(
-                "Thank You!", 
-                f"We'll notify you when the {section.title()} feature launches!\nEmail: {email}"
-            )
-        else:
-            messagebox.showerror("Error", "Please enter a valid email address.")
 
     def start_backup(self):
         usernames = [u.strip() for u in self.username_entry.get().split(',')]
@@ -528,6 +373,7 @@ class TikTokBackupGUI:
         # Schedule status updates using a safer method
         self.root.after(100, self.check_backup_status)
 
+
     def check_backup_status(self):
         """Periodically check backup status and update UI"""
         if hasattr(self, 'backup_thread') and self.backup_thread.is_alive():
@@ -536,6 +382,7 @@ class TikTokBackupGUI:
         else:
             # Thread finished, re-enable start button
             self.start_button.configure(state="normal")
+
 
     def run_backup(self, usernames):
         """Run the backup process in a separate thread"""
@@ -618,12 +465,14 @@ class TikTokBackupGUI:
             self.root.after(0, lambda: self.update_status(f"Error initializing browser: {error_msg}"))
             self.root.after(0, lambda: messagebox.showerror("Error", error_msg))
 
+
     def update_status(self, message):
         """Update status text in a thread-safe way"""
         self.status_text.configure(state="normal")
         self.status_text.insert('end', f"{message}\n")
         self.status_text.see('end')
         self.status_text.configure(state="disabled")
+
 
     def cancel_backup(self):
         """Cancel the backup process"""
@@ -632,56 +481,25 @@ class TikTokBackupGUI:
             # TODO: Implement proper cancellation logic
             self.start_button.configure(state="normal")
 
-    def show_activation_wizard(self):
-        """Show the activation wizard"""
-        from src.licensing.activation_wizard import ActivationWizard
-        ActivationWizard(self)
         
     def open_github(self):
         """Open GitHub repository"""
         import webbrowser
-        webbrowser.open("https://github.com/itskaywat/tiktok-profile-archiver")
+        webbrowser.open("https://github.com/prof79/tiktok-profile-archiver")
 
-    def open_purchase(self):
-        """Open purchase page"""
-        import webbrowser
-        webbrowser.open("https://www.paypal.com/donate/?hosted_button_id=J3ABMPG6MQF3L")
 
     def run(self):
         self.root.mainloop()
 
+#endregion
+
+
+#region ENTRYPOINT
+
 if __name__ == "__main__":
-    # Check license before anything else
     try:
-        from src.licensing.license_manager import LicenseManager
-        license_manager = LicenseManager()
-        status = license_manager.check_license_status()
-        
-        if status['status'] == 'unlicensed':
-            # Show activation splash first
-            from src.licensing.activation_splash import ActivationSplash
-            activation_splash = ActivationSplash()
-            activation_splash.run()
-            
-            # Create temporary root for activation wizard
-            temp_root = ctk.CTk()
-            temp_root.withdraw()  # Hide the temporary root
-            
-            # Show activation wizard
-            from src.licensing.activation_wizard import ActivationWizard
-            wizard = ActivationWizard(temp_root)
-            wizard.wait_window()  # Wait for activation window to close
-            
-            # Recheck license status after activation
-            status = license_manager.check_license_status()
-            if status['status'] == 'unlicensed':
-                # If still unlicensed, exit
-                sys.exit()
-                
-            temp_root.destroy()
-        
-        # Only if licensed/trial, show main splash and start app
         from src.splash_screen import SplashScreen
+
         splash = SplashScreen()
         splash.run()
         
@@ -691,5 +509,9 @@ if __name__ == "__main__":
         
     except Exception as e:
         import tkinter.messagebox as messagebox
+
         messagebox.showerror("Error", f"Failed to start application: {str(e)}")
+
         sys.exit(1) 
+
+#endregion
