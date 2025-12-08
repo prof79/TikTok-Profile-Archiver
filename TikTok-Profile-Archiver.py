@@ -5,6 +5,7 @@ import requests
 import subprocess
 
 from datetime import datetime
+from getpass import getpass
 from typing import Any, Optional
 
 from selenium import webdriver
@@ -67,6 +68,8 @@ def get_user_choices():
 
     usernames = [clean_user_name(username) for username in usernames_input.split(',')]
     
+    return usernames
+
     print("""
 Select backup options (enter numbers separated by commas):
 1. Reposts
@@ -79,7 +82,7 @@ Enter your choices (e.g., 1,2,3,4 or 5): """, end="")
     
     choices = input().strip()
 
-    return usernames, choices
+    #return usernames, choices
 
 
 def setup_chrome_profile() -> WebDriver:
@@ -363,8 +366,9 @@ def handle_tiktok_page_load(driver, url):
         time.sleep(3)  # Wait for initial load
         
         # Refresh the page to bypass automation detection
-        driver.refresh()
-        time.sleep(3)  # Wait after refresh
+        # -> doesn't really help
+        #driver.refresh()
+        #time.sleep(3)  # Wait after refresh
         
         # Wait for body element to be present
         WebDriverWait(driver, 10).until(
@@ -375,8 +379,49 @@ def handle_tiktok_page_load(driver, url):
         time.sleep(2)
         
         return True
+
     except Exception as e:
         print(f"Error loading page: {str(e)}")
+        return False
+
+
+def handle_cookie_banner(driver: WebDriver) -> None:
+    
+    try:
+        cookie_banner = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.TAG_NAME, 'tiktok-cookie-banner'))
+        )
+
+        print('Cookie banner found')
+
+        #shadow_root = driver.execute_script('return arguments[0].shadowRoot', cookie_banner)
+        shadow_root = cookie_banner.shadow_root
+
+        cookie_buttons = shadow_root.find_elements(By.TAG_NAME, 'button')
+
+        if len(cookie_buttons) == 0:
+            print('Cookie buttons not found')
+
+        else:
+            print('Cookie buttons found')
+            cookie_buttons[0].click()
+
+    except Exception as ex:
+        print('Cookie banner or buttons not found')
+        print(ex)
+
+
+def detect_captcha(driver: WebDriver) -> bool:
+
+    try:
+        WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'captcha-verify-container'))
+        )
+
+        return True
+
+    except:
+
         return False
 
 
@@ -607,16 +652,18 @@ def main():
     display_welcome_message()
     
     # Get user input
-    usernames, choices = get_user_choices()
+    #usernames, choices = get_user_choices()
+    usernames = get_user_choices()
     
     try:
         # Process each username
         for i, username in enumerate(usernames, 1):
             # Initialize browser per user to prevent long-run crashes and memory issues
             print("\nInitializing browser...")
+
             driver = setup_chrome_profile()
 
-            print(f"\nProcessing account {i}/{len(usernames)}: @{username}")
+            print(f"\nProcessing account {i}/{len(usernames)}: @{username}\n")
             
             # Create backup directory structure
             base_dir = create_backup_structure(username)
@@ -628,6 +675,21 @@ def main():
                 print(f"Failed to load TikTok page for @{username}, skipping to next account...")
                 continue
             
+            # Handle CAPTCHA
+            captcha_present = detect_captcha(driver)
+
+            if captcha_present:
+                print('PLEASE SOLVE THE CAPTCHA, THEN PRESS ENTER', end='')
+                getpass(prompt='')
+
+            print()
+            print()
+
+            # Handle cookie banner
+            print('Trying to detect and dismiss cookie banner ...')
+
+            handle_cookie_banner(driver)
+
             # Scrape profile information
             if not scrape_profile_info(driver, base_dir):
                 print(f"Warning: Failed to scrape profile information for @{username}")
