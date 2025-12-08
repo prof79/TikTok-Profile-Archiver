@@ -3,13 +3,14 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = [('assets', 'assets'), ('src', 'src'), ('requirements.txt', '.'), ('README.md', '.'), ('web', 'web'), ('assets', 'assets')]
 binaries = []
-hiddenimports = ['PIL._tkinter_finder', 'customtkinter', 'selenium', 'webdriver_manager', 'requests', 'json', 'datetime', 'threading', 'tkinter', 'PIL', 'src.licensing.license_manager', 'src.licensing.activation_wizard', 'src.licensing.activation_splash', 'src.splash_screen']
+hiddenimports = ['PIL._tkinter_finder', 'customtkinter', 'selenium', 'webdriver_manager', 'requests', 'json', 'datetime', 'threading', 'tkinter', 'PIL', 'src.splash_screen']
 tmp_ret = collect_all('customtkinter')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('selenium')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('webdriver_manager')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+
 
 a = Analysis(
     ['gui.py'],
@@ -20,11 +21,10 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=['PyQt6', 'PySide6'],
     noarchive=True,
     optimize=0,
 )
-
 pyz = PYZ(a.pure)
 
 exe = EXE(
