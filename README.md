@@ -1,20 +1,8 @@
-[ FREE WHILE IN BETA STAGES ]
-https://sites.google.com/view/tiktok-backup/download/purchase
-
-TikTok Profile Achriver Chrome Extension:
-https://chromewebstore.google.com/detail/tiktok-downloader/medgffgfcjmjnindjonmjghlmmpolnfh
-
-TikTok Shutdown Guide & Tools: 
-https://url.kaywat.me/blog/tiktok-shutdown-guide
-
-## REPORT PROJECT BUGS AND REQUESTS HERE
-https://github.com/users/itsKayWat/projects/2
-
-INBOX ME TO BACKUP YOUR FOLLOWING AND FOLLOWERS LISTS - Its a little more complicated
-
 # TikTok Profile Backup Tool
 
-A comprehensive TikTok profile backup tool that creates complete local archives of TikTok profiles, including videos, metadata, and profile information. Perfect for content creators and users affected by the upcoming TikTok shutdown on January 19th, 2025.
+A TikTok profile backup tool that creates complete local archives of TikTok profiles including videos, metadata, and profile information.
+
+Please note that some content in this Read Me is still incorrect as it reflects the expectations of the original developer for the final tool not what the actual codebase can do (like command-line arguments).
 
 ## Features
 
@@ -73,7 +61,7 @@ python tt-backup.py --debug
 
 ## Output Structure
 
-@username_Month Day-Year/
+@username YearMonthDay_HoursMinutes/
 ├── 01_profile/
 │ ├── 01_avatar/
 │ ├── 02_bio/
@@ -102,16 +90,6 @@ python tt-backup.py --debug
   - Solution: Use logged-in Chrome profile
 - Rate limiting on mass downloads
   - Mitigation: Built-in throttling system
-
-## Coming Soon
-
-- Following/Followers List Backup (March 30)
-- GUI Interface (May 2024)
-- Scheduled Backups
-- Multi-threaded Downloads
-- Cloud backup integration
-- Analytics dashboard
-- Batch processing improvements
 
 ## Usage Tips
 
@@ -144,41 +122,11 @@ Common issues and solutions:
    - Check storage permissions
    - Run with --verify flag
 
-## Support Development
-
-If this tool helps you, consider buying me a coffee:
-
-- ☕️ One Coffee ($6)
-- ☕️☕️ Two Coffees ($12)
-- ☕️☕️☕️ Three Coffees ($24)
-
-PayPal: https://www.paypal.com/donate/?hosted_button_id=J3ABMPG6MQF3L
-
-### Why Support?
-
-- Active development and updates
-- Quick bug fixes
-- Feature requests priority
-- Email support
-- Help fund server costs
-- Support future tools
-
-## Contact
-
-- Email: info@kaywat.me
-- Website: www.kaywat.me
-- GitHub Issues: Bug reports & feature requests
-- Discord: Coming soon
-- Twitter: @KayWat
-
 ## Resources
 
-- [Privacy Policy](privacy.html)
-- [Full Documentation](readme.html)
-- [Project Roadmap](roadmap.map)
-- [Video Tutorials](https://youtube.com/@KayWat)
-- [FAQ](docs/faq.md)
-- [Contributing Guidelines](CONTRIBUTING.md)
+- [Privacy Policy](web/privacy.html)
+- [Full Documentation](web/readme.html)
+- [Original Roadmap](roadmap.map) (with no intent of completion)
 
 ## License
 
@@ -186,7 +134,4 @@ MIT License - See LICENSE file for details
 
 ## Acknowledgments
 
-- TikTok Creator Community
-- Open Source Contributors
-- Beta Testers
-- Coffee Supporters ❤️
+- The original developers (@itsKayWat) and their supporters
