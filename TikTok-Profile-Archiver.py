@@ -1,19 +1,15 @@
 import os
 import sys
 import time
+import requests
+import subprocess
+from datetime import datetime
+from typing import Optional
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import requests
-import json
-from datetime import datetime
-import subprocess
-import re
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.common.keys import Keys
 
 def display_welcome_message():
     print("""
@@ -48,7 +44,8 @@ def install_dependencies():
     except Exception as e:
         print(f"Error installing dependencies: {str(e)}")
 
-def setup_chrome_profile():
+
+def setup_chrome_profile() -> WebDriver:
     chrome_options = webdriver.ChromeOptions()
     
     # Get the correct path for Windows
@@ -69,26 +66,30 @@ def setup_chrome_profile():
     os.system("taskkill /f /im chrome.exe")
     time.sleep(2)
     
+    # try:
+    #     driver = webdriver.Chrome(options=chrome_options)
+    #     # Mask selenium's presence
+    #     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+    #     return driver
+    # except Exception as e:
+    #    print(f"Error initializing Chrome with profile: {str(e)}")
+
+    # From experience, "with profile" does not seem to work anymore
+    print("\nTrying alternative method without user profile...")
+    
     try:
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument('--no-sandbox')
+        chrome_options.add_argument('--disable-dev-shm-usage')
+        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
         driver = webdriver.Chrome(options=chrome_options)
-        # Mask selenium's presence
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         return driver
+
     except Exception as e:
-        print(f"Error initializing Chrome with profile: {str(e)}")
-        print("\nTrying alternative method without user profile...")
-        
-        try:
-            chrome_options = webdriver.ChromeOptions()
-            chrome_options.add_argument('--no-sandbox')
-            chrome_options.add_argument('--disable-dev-shm-usage')
-            chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            return driver
-        except Exception as e:
-            print(f"Error with alternative method: {str(e)}")
-            sys.exit("Could not initialize Chrome. Please make sure Chrome is installed.")
+        print(f"Error with alternative method: {str(e)}")
+        sys.exit("Could not initialize Chrome. Please make sure Chrome is installed.")
+
 
 def handle_empty_directory(directory, message="No content was found to scrape for this section."):
     """Create an explanation file in empty directories"""
@@ -98,18 +99,25 @@ def handle_empty_directory(directory, message="No content was found to scrape fo
 
 def create_backup_structure(username):
     """Create the backup directory structure and handle empty folders"""
+    # Sorry, this is stupid, not sort-friendly plus include time
     # Format the date as before
-    date_str = datetime.now().strftime("%B %d")
-    day = int(datetime.now().strftime("%d"))
-    if 10 <= day % 100 <= 20:
-        suffix = 'th'
-    else:
-        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
-    date_str = f"{date_str}{suffix}-{datetime.now().strftime('%Y')}"
-    
+    # date_str = datetime.now().strftime("%B %d")
+    # day = int(datetime.now().strftime("%d"))
+    # if 10 <= day % 100 <= 20:
+    #     suffix = 'th'
+    # else:
+    #     suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')
+    # date_str = f"{date_str}{suffix}-{datetime.now().strftime('%Y')}"
+
+    date_str = datetime.now().strftime('%Y-%m-%d_%H%M')
+
     # Clean up username
     clean_username = username.replace('https://www.tiktok.com/', '').replace('/', '')
-    base_dir = f"@{clean_username}_{date_str}"
+
+    # People often use _ at the end so this is a bad separator
+    #base_dir = f"@{clean_username}_{date_str}"
+    base_dir = f"@{clean_username} {date_str}"
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(script_dir, base_dir)
     
@@ -173,12 +181,14 @@ Select backup options (enter numbers separated by commas):
 4. All of the above
 5. None of the above (just profile backup)
 
-Enter your choices (e.g., 1,2,3 or 4): """, end="")
+Enter your choices (e.g., 1,2,3,4 or 5): """, end="")
     
     choices = input().strip()
     return usernames, choices
 
-def download_video(url, output_path):
+
+# Function declaration "download_video" is obscured by a declaration of the same name (Pylance)
+def download_video(url, output_path) -> bool:
     try:
         subprocess.run([
             'yt-dlp',
@@ -186,10 +196,10 @@ def download_video(url, output_path):
             '--quiet',
             '-o', output_path,
             url
-        ])
+        ], check=True)
         return True
     except Exception as e:
-        print(f"Failed to download video: {str(e)}")
+        #print(f"Failed to download video: {str(e)}")
         return False
 
 def handle_tiktok_page_load(driver, url):
@@ -306,6 +316,7 @@ def scrape_profile_info(driver, base_dir):
         print(f"Error scraping profile information: {str(e)}")
         return False
 
+
 def scrape_videos(driver, base_dir):
     print("\nScraping videos...")
     try:
@@ -316,21 +327,34 @@ def scrape_videos(driver, base_dir):
         
         # Scroll to load all videos first
         print("Loading all videos...")
+
         last_height = driver.execute_script("return document.documentElement.scrollHeight")
+
         while True:
+
+            print(f'Last height: {last_height}')
             # Scroll down to bottom
             driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-            time.sleep(2)  # Wait for new videos to load
-            
+            time.sleep(2.4)  # Wait for new videos to load
+
+            print('Scroll successful')
+
             # Calculate new scroll height and compare with last scroll height
             new_height = driver.execute_script("return document.documentElement.scrollHeight")
+
+            print(f'New height: {new_height}')
+
             if new_height == last_height:
                 break
+
             last_height = new_height
         
+        print('Past scrolling code, attempting data-e2e="user-post-item"')
+
         # Now get all video elements after everything is loaded
         video_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")
         total_videos = len(video_elements)
+
         print(f"\nFound {total_videos} videos total")
         
         # Process videos
@@ -343,23 +367,35 @@ def scrape_videos(driver, base_dir):
                 
                 # Create initial folder name (without private suffix)
                 base_video_path = os.path.join(base_dir, "04_videos", f"video_{idx}")
-                
+
+                video_path = os.path.join(base_video_path, "video.mp4")
+
                 # Try to download video first before creating any folders
                 download_success = False
-                try:
-                    os.makedirs(base_video_path, exist_ok=True)
-                    subprocess.run([
-                        'yt-dlp',
-                        '--no-warnings',
-                        '--quiet',
-                        '-o', os.path.join(base_video_path, "video.mp4"),
-                        video_link
-                    ], check=True)
-                    download_success = True
+
+                # try:
+                #     os.makedirs(base_video_path, exist_ok=True)
+                #     subprocess.run([
+                #         'yt-dlp',
+                #         '--no-warnings',
+                #         '--quiet',
+                #         '-o', os.path.join(base_video_path, "video.mp4"),
+                #         video_link
+                #     ], check=True)
+                #     download_success = True
+                #     print(f"Successfully downloaded video {idx}")
+                # except Exception as e:
+                #     print(f"Error downloading video {idx}: {str(e)}")
+                #     download_success = False
+
+                os.makedirs(base_video_path, exist_ok=True)
+
+                download_success = download_video(video_link, video_path)
+
+                if download_success:
                     print(f"Successfully downloaded video {idx}")
-                except Exception as e:
-                    print(f"Error downloading video {idx}: {str(e)}")
-                    download_success = False
+                else:
+                    print(f"Error downloading video {idx}")
                 
                 # Determine final folder name based on download success
                 final_folder_name = f"video_{idx}_PRIVATE-VIDEO" if not download_success else f"video_{idx}"
@@ -380,10 +416,15 @@ def scrape_videos(driver, base_dir):
                 
                 try:
                     # Get metadata
-                    username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='video-author-nickname']").text
-                    date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname']").text
-                    description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='video-desc']").text
-                    sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='video-music']").text
+                    # TODO: Code duplication!!!
+                    #username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='video-author-nickname']").text
+                    #date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname']").text
+                    username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(1)").text
+                    date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(3)").text
+                    #description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='video-desc']").text
+                    description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='browse-video-desc']").text
+                    #sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='video-music']").text
+                    sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='browse-music']").text
                     
                     # Check if video is private
                     is_private = False
@@ -395,14 +436,18 @@ def scrape_videos(driver, base_dir):
                         privacy = "Public Video"
                     
                     # Get comments
+                    # TODO: Code duplication!!!
                     try:
-                        comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='comment-count']").text
+                        #comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='comment-count']").text
+                        comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='browse-comment-count']").text
                         comments = []
                         if int(comment_count.replace(',', '')) > 0:
-                            comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-e2e='comment-level-1']")
-                            for comment in comment_elements:
-                                comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-text']").text
-                                comments.append(comment_text)
+                            #comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-e2e='comment-level-1']")
+                            #for comment in comment_elements:
+                            #    comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-text']").text
+                            #    comments.append(comment_text)
+                            comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-level-1'] > span").text
+                            comments.append(comment_text)
                     except:
                         comment_count = "0"
                         comments = []
@@ -450,7 +495,7 @@ def scrape_videos(driver, base_dir):
         print(f"Error scraping videos: {str(e)}")
         return False
 
-def get_video_without_watermark(video_url):
+def get_video_without_watermark(video_url: str) -> Optional[str]:
     """Download video without watermark using yt-dlp"""
     try:
         import yt_dlp
@@ -470,23 +515,26 @@ def get_video_without_watermark(video_url):
         print(f"Error getting video without watermark: {str(e)}")
     return None
 
-def download_video(url, path):
-    """Download video file using yt-dlp"""
-    try:
-        import yt_dlp
+
+# Function declaration "download_video" is obscured by a declaration of the same name (Pylance)
+# def download_video(url, path) -> bool:
+#     """Download video file using yt-dlp"""
+#     try:
+#         import yt_dlp
         
-        ydl_opts = {
-            'format': 'best',
-            'quiet': True,
-            'no_warnings': True,
-            'outtmpl': path
-        }
+#         ydl_opts = {
+#             'format': 'best',
+#             'quiet': True,
+#             'no_warnings': True,
+#             'outtmpl': path
+#         }
         
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+#         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+#             ydl.download([url])
+#             return True
             
-    except Exception as e:
-        raise Exception(f"Failed to download video: {str(e)}")
+#     except Exception as e:
+#         raise Exception(f"Failed to download video: {str(e)}")
 
 def scrape_pinned_videos(driver, base_dir):
     print("\nScraping pinned videos...")
@@ -513,17 +561,27 @@ def scrape_pinned_videos(driver, base_dir):
                 os.makedirs(base_video_path, exist_ok=True)
                 
                 # Try to download video
-                try:
-                    subprocess.run([
-                        'yt-dlp',
-                        '--no-warnings',
-                        '--quiet',
-                        '-o', os.path.join(base_video_path, "video.mp4"),
-                        video_link
-                    ], check=True)
+
+                # try:
+                #     subprocess.run([
+                #         'yt-dlp',
+                #         '--no-warnings',
+                #         '--quiet',
+                #         '-o', os.path.join(base_video_path, "video.mp4"),
+                #         video_link
+                #     ], check=True)
+                #     print(f"Successfully downloaded pinned video {idx}")
+                # except Exception as e:
+                #     print(f"Error downloading pinned video {idx}: {str(e)}")
+
+                video_path = os.path.join(base_video_path, "video.mp4")
+
+                download_success = download_video(video_link, video_path)
+
+                if download_success:
                     print(f"Successfully downloaded pinned video {idx}")
-                except Exception as e:
-                    print(f"Error downloading pinned video {idx}: {str(e)}")
+                else:
+                    print(f"Error downloading pinned video {idx}")
                 
                 # Now open video in new tab to get metadata
                 original_window = driver.current_window_handle
@@ -534,20 +592,29 @@ def scrape_pinned_videos(driver, base_dir):
                 
                 try:
                     # Get metadata
-                    username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='video-author-nickname']").text
-                    date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname']").text
-                    description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='video-desc']").text
-                    sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='video-music']").text
-                    
+                    # TODO: Code duplication!!!
+                    #username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='video-author-nickname']").text
+                    #date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname']").text
+                    username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(1)").text
+                    date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(3)").text
+                    #description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='video-desc']").text
+                    description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='browse-video-desc']").text
+                    #sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='video-music']").text
+                    sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='browse-music']").text
+
                     # Get comments
+                    # TODO: Code duplication!!!
                     try:
-                        comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='comment-count']").text
+                        #comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='comment-count']").text
+                        comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='browse-comment-count']").text
                         comments = []
                         if int(comment_count.replace(',', '')) > 0:
-                            comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-e2e='comment-level-1']")
-                            for comment in comment_elements:
-                                comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-text']").text
-                                comments.append(comment_text)
+                            #comment_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-e2e='comment-level-1']")
+                            #for comment in comment_elements:
+                            #    comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-text']").text
+                            #    comments.append(comment_text)
+                            comment_text = comment.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-level-1'] > span").text
+                            comments.append(comment_text)
                     except:
                         comment_count = "0"
                         comments = []
@@ -659,6 +726,7 @@ def main():
     finally:
         if driver:
             driver.quit()
+
 
 if __name__ == "__main__":
     main()
