@@ -4,6 +4,7 @@ import PyInstaller.__main__
 
 from PIL import Image, ImageDraw, ImageFont
 
+
 def create_icon():
     """Create a black square icon with white music note"""
     # Create a new image with a black background
@@ -67,9 +68,6 @@ def build_exe():
         '--hidden-import=threading',
         '--hidden-import=tkinter',
         '--hidden-import=PIL',
-        '--hidden-import=src.licensing.license_manager',
-        '--hidden-import=src.licensing.activation_wizard',
-        '--hidden-import=src.licensing.activation_splash',
         '--hidden-import=src.splash_screen',
         
         # Add collect-all for key packages
@@ -80,15 +78,17 @@ def build_exe():
         # Add debug and logging
         '--debug=all',
         '--log-level=DEBUG',
+
+        # Excludes
+        '--exclude-module=PyQt6',
+        '--exclude-module=PySide6',
     ]
     
     # Add all required data files and folders
     additional_data = [
         ('src', 'src'),
-        ('licensing', 'licensing'),
         ('requirements.txt', '.'),
         ('README.md', '.'),
-        ('tt-backup.py', '.'),
         ('web', 'web'),
         ('assets', 'assets'),
     ]
@@ -99,6 +99,7 @@ def build_exe():
     
     # Run PyInstaller
     PyInstaller.__main__.run(args)
+
 
 if __name__ == "__main__":
     # Clean previous builds
