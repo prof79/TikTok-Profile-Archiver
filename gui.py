@@ -1,63 +1,20 @@
-import tkinter as tk
-from tkinter import ttk, messagebox
 import customtkinter as ctk
-import threading
-import os
 import sys
-from PIL import Image, ImageTk
-from datetime import datetime
-import importlib.util
+import threading
+import tkinter as tk
 
-# Import directly from the same directory
-try:
-    import sys
-    import os
-    
-    # Add the project root directory to Python path
-    project_root = os.path.dirname(os.path.abspath(__file__))
-    if project_root not in sys.path:
-        sys.path.append(project_root)
-        
-    # Try importing from current directory first
-    module_path = os.path.join(project_root, "tt-backup.py")
-    if os.path.exists(module_path):
-        spec = importlib.util.spec_from_file_location("tt_backup", module_path)
-        tt_backup = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(tt_backup)
-        
-        # Get the required functions
-        create_backup_structure = tt_backup.create_backup_structure
-        setup_chrome_profile = tt_backup.setup_chrome_profile
-        scrape_profile_info = tt_backup.scrape_profile_info
-        handle_tiktok_page_load = tt_backup.handle_tiktok_page_load
-        scrape_pinned_videos = tt_backup.scrape_pinned_videos
-        scrape_videos = tt_backup.scrape_videos
-        install_dependencies = tt_backup.install_dependencies
-    else:
-        # If that fails, try importing from src directory
-        module_path = os.path.join(project_root, "src", "tt-backup.py")
-        if os.path.exists(module_path):
-            spec = importlib.util.spec_from_file_location("tt_backup", module_path)
-            tt_backup = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(tt_backup)
-            
-            # Get the required functions
-            create_backup_structure = tt_backup.create_backup_structure
-            setup_chrome_profile = tt_backup.setup_chrome_profile
-            scrape_profile_info = tt_backup.scrape_profile_info
-            handle_tiktok_page_load = tt_backup.handle_tiktok_page_load
-            scrape_pinned_videos = tt_backup.scrape_pinned_videos
-            scrape_videos = tt_backup.scrape_videos
-            install_dependencies = tt_backup.install_dependencies
-        else:
-            print("Error: Could not find tt-backup.py in either the current directory or src/ directory")
-            print("Please ensure tt-backup.py exists in one of these locations:")
-            print(f"- {os.path.join(project_root, 'tt-backup.py')}")
-            print(f"- {os.path.join(project_root, 'src', 'tt-backup.py')}")
-            sys.exit(1)
-except Exception as e:
-    print(f"Error importing tt-backup.py: {str(e)}")
-    sys.exit(1)
+from tkinter import messagebox
+
+from src.tt_backup import (
+    create_backup_structure,
+    setup_chrome_profile,
+    scrape_profile_info,
+    handle_tiktok_page_load,
+    scrape_pinned_videos,
+    scrape_videos,
+    install_dependencies,
+)
+
 
 # TikTok-themed colors
 COLORS = {
