@@ -654,14 +654,19 @@ def main():
     # Get user input
     #usernames, choices = get_user_choices()
     usernames = get_user_choices()
-    
+
+    print("\nInitializing browser...")
+
+    driver = setup_chrome_profile()
+
     try:
         # Process each username
         for i, username in enumerate(usernames, 1):
             # Initialize browser per user to prevent long-run crashes and memory issues
-            print("\nInitializing browser...")
-
-            driver = setup_chrome_profile()
+            # ... can't do right now due to CAPTCHA
+            #print("\nInitializing browser...")
+            #
+            #driver = setup_chrome_profile()
 
             print(f"\nProcessing account {i}/{len(usernames)}: @{username}\n")
             
@@ -679,16 +684,15 @@ def main():
             captcha_present = detect_captcha(driver)
 
             if captcha_present:
-                print('PLEASE SOLVE THE CAPTCHA, THEN PRESS ENTER', end='')
+                print('PLEASE SOLVE THE CAPTCHA, THEN PRESS ENTER')
                 getpass(prompt='')
 
             print()
-            print()
 
             # Handle cookie banner
-            print('Trying to detect and dismiss cookie banner ...')
+            #print('Trying to detect and dismiss cookie banner ...')
 
-            handle_cookie_banner(driver)
+            #handle_cookie_banner(driver)
 
             # Scrape profile information
             if not scrape_profile_info(driver, base_dir):
@@ -704,7 +708,8 @@ def main():
             
             print(f"\nBackup completed for @{username}")
 
-            driver.quit()
+            # Can't do right now due to CAPTCHA
+            #driver.quit()
         
         print("\nAll accounts processed successfully!")
         
