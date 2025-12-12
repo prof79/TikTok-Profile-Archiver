@@ -323,7 +323,7 @@ def save_videos(driver, base_dir: str, video_elements, folder_name: str='04_vide
 
                 try:
                     driver.find_element(By.ID, 'comments').click()
-                    time.sleep(1)
+                    time.sleep(2)
                     comment_count_text = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCommentCountContainer']").text
                     comment_count = int(comment_count_text.split(' ')[0])
 
