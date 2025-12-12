@@ -243,7 +243,7 @@ def save_videos(driver, base_dir: str, video_elements, folder_name: str='04_vide
             video_link = video.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
             
             # Create initial folder name (without private suffix)
-            base_video_path = os.path.join(base_dir, "04_videos", f"video_{idx}")
+            base_video_path = os.path.join(base_dir, folder_name, f"video_{idx}")
 
             video_path = os.path.join(base_video_path, "video.mp4")
 
@@ -273,7 +273,7 @@ def save_videos(driver, base_dir: str, video_elements, folder_name: str='04_vide
             
             # Determine final folder name based on download success
             final_folder_name = f"video_{idx}_PRIVATE-VIDEO" if not download_success else f"video_{idx}"
-            final_path = os.path.join(base_dir, "04_videos", final_folder_name)
+            final_path = os.path.join(base_dir, folder_name, final_folder_name)
             
             # If the folder exists with a different name, rename it
             if os.path.exists(base_video_path) and not download_success:
@@ -293,35 +293,60 @@ def save_videos(driver, base_dir: str, video_elements, folder_name: str='04_vide
             time.sleep(3)
             
             try:
-                # Get metadata
-                username = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(1)").text
-                date = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='browser-nickname'] > span:nth-child(3)").text
-                description = driver.find_element(By.CSS_SELECTOR, "div[data-e2e='browse-video-desc']").text
-                sound = driver.find_element(By.CSS_SELECTOR, "h4[data-e2e='browse-music']").text
-                
+
+                # Get optional music info
+                music = '-'
+
+                try:
+                    music = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivMusicContainer']").text
+
+                except:
+                    pass
+
                 # Check if video is private
                 is_private = False
+                privacy = "Public Video"
 
                 try:
-                    private_element = driver.find_element(By.CSS_SELECTOR, "span[data-e2e='private-video']")
-                    privacy = "Private Video"
+                    driver.find_element(By.CSS_SELECTOR, "span[data-e2e='private-video']")
                     is_private = True
-                except:
-                    privacy = "Public Video"
-                
-                # Get comments
-                try:
-                    comment_count = driver.find_element(By.CSS_SELECTOR, "strong[data-e2e='browse-comment-count']").text
-                    comments = []
 
-                    if int(comment_count.replace(',', '')) > 0:
-                        # TODO: Is driver.find_element correct or should it be comment_count.find_element?
-                        comment_text = driver.find_element(By.CSS_SELECTOR, "p[data-e2e='comment-level-1'] > span").text
-                        comments.append(comment_text)
                 except:
-                    comment_count = "0"
-                    comments = []
+                    pass
+
+                if is_private:
+                    privacy = "Private Video"
+
+                # Get comments
+                comment_count = 0
+                comment_text = ''
+
+                try:
+                    driver.find_element(By.ID, 'comments').click()
+                    time.sleep(1)
+                    comment_count_text = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCommentCountContainer']").text
+                    comment_count = int(comment_count_text.split(' ')[0])
+
+                    if comment_count > 0:
+                        comment_text = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCommentListContainer']").text.strip()
+
+                except:
+                    pass
                 
+                # Get metadata
+                try:
+                    container = driver.find_element(By.CSS_SELECTOR, "span[class*='--SpanOtherInfos']")
+
+                except:
+                    container = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCreatorInfoContainer']")    
+
+                components = [part.strip() for part in container.text.split('·') if part.strip()]
+
+                username = components[0]
+                date = components[1]
+
+                description = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivDescriptionContentContainer']").text.strip()
+
                 # Save metadata
                 with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
                     f.write(f"@{username}\n")
@@ -329,17 +354,19 @@ def save_videos(driver, base_dir: str, video_elements, folder_name: str='04_vide
                     f.write(f"Date - {date}\n")
                     f.write("·\n")
                     f.write(f"{privacy}\n")
-                    f.write(".\n")
+                    f.write("·\n")
                     f.write("URL: \n")
-                    f.write(f"{video_link}\n\n")
+                    f.write(f"{video_link}\n")
+                    f.write("·\n")
                     f.write("Video Caption Description:\n")
                     f.write(f"{description}\n")
-                    f.write(f"{sound}\n")
-                    f.write(f"{comment_count} comment\n\n")
-                    f.write("comments:\n")
-                    if comments:
-                        for comment in comments:
-                            f.write(f"{comment}\n")
+                    f.write("·\n")
+                    f.write(f"Music: {music}\n")
+                    f.write("·\n")
+                    f.write(f"{comment_count} Comment(s)\n\n")
+                    f.write(f"Comments:\n\n")
+                    if comment_text:
+                        f.write(f"{comment_text}\n")
                     else:
                         f.write("(no comments available)\n")
                 
@@ -348,7 +375,7 @@ def save_videos(driver, base_dir: str, video_elements, folder_name: str='04_vide
                 # Save at least the URL if metadata fails
                 with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
                     f.write(f"Video URL: {video_link}\n")
-            
+
             finally:
                 # Close video tab and return to main window
                 driver.close()
@@ -686,8 +713,7 @@ def main():
             if captcha_present:
                 print('PLEASE SOLVE THE CAPTCHA, THEN PRESS ENTER')
                 getpass(prompt='')
-
-            print()
+                print()
 
             # Handle cookie banner
             #print('Trying to detect and dismiss cookie banner ...')
@@ -712,7 +738,10 @@ def main():
             #driver.quit()
         
         print("\nAll accounts processed successfully!")
-        
+
+    except KeyboardInterrupt:
+        print('Program aborted.')
+
     except Exception as e:
         print(f"An error occurred: {str(e)}")
 
@@ -722,4 +751,7 @@ def main():
 
 
 if __name__ == "__main__":
+    print()
     main()
+    print()
+    print()
