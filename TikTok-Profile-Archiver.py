@@ -153,7 +153,7 @@ Enter your choices (e.g., 1,2,3,4 or 5): """, end="")
 
 def setup_chrome_profile() -> WebDriver:
     
-    print("Initializing browser...\n")
+    print("Initializing browser ...\n")
 
     chrome_options = webdriver.ChromeOptions()
     
@@ -184,7 +184,7 @@ def setup_chrome_profile() -> WebDriver:
     #    print(f"Error initializing Chrome with profile: {str(e)}")
 
     # From experience, "with profile" does not seem to work anymore
-    print("\nTrying alternative method without user profile...\n")
+    print("\nTrying alternative method without user profile ...\n")
     
     try:
         chrome_options = webdriver.ChromeOptions()
@@ -292,22 +292,59 @@ def create_backup_structure(username: str) -> str:
 
 #region Video Download & Saving
 
-# Function declaration "download_video" is obscured by a declaration of the same name (Pylance)
-def download_video(url, output_path) -> bool:
+def download_video(url, path) -> bool:
+    """Downloads a video file from an URL using yt-dlp.
+    """
     try:
-        subprocess.run([
-            'yt-dlp',
-            '--no-warnings',
-            '--quiet',
-            '-o', output_path,
-            url
-        ], check=True)
+        import yt_dlp
 
-        return True
+        ydl_opts: yt_dlp._Params = {
+            'format': 'best',
+            'quiet': True,
+            'no_warnings': True,
+            'outtmpl': path,
+            'http_headers': {
+                # https://github.com/yt-dlp/yt-dlp/issues/15418
+                'User-Agent': 'Unknown',
+            },
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+            return True
+            
+    except Exception as e:
+        #raise Exception(f"Failed to download video: {str(e)}")
+        print(e)
+        return False
+
+
+def get_video_without_watermark(video_url: str) -> Optional[str]:
+    """Downloads a video without watermark using yt-dlp.
+    """
+    try:
+        import yt_dlp
+        
+        ydl_opts: yt_dlp._Params = {
+            'format': 'best',
+            'quiet': True,
+            'no_warnings': True,
+            'extract_flat': False,
+            'http_headers': {
+                # https://github.com/yt-dlp/yt-dlp/issues/15418
+                'User-Agent': 'Unknown',
+            },
+        }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            result = ydl.extract_info(video_url, download=False)
+            if 'url' in result:
+                return result['url']
 
     except Exception as e:
-        #print(f"Failed to download video: {str(e)}")
-        return False
+        print(f"Error getting video without watermark: {str(e)}")
+
+    return None
 
 
 def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements: list[WebElement], folder_name: str='04_videos') -> WebDriver:
@@ -676,7 +713,7 @@ def initialize_browser_for_user(driver: Optional[WebDriver], username: str) -> O
         driver = setup_chrome_profile()
 
     if not handle_tiktok_page_load(driver, profile_url):
-        print(f"Failed to load TikTok page for @{username}, skipping to next account...")
+        print(f"Failed to load TikTok page for @{username}, skipping to next account ...")
         return None
 
     # Handle CAPTCHA
@@ -697,7 +734,7 @@ def initialize_browser_for_user(driver: Optional[WebDriver], username: str) -> O
 
 
 def scrape_profile_info(driver: WebDriver, base_dir: str):
-    print("Scraping profile information...")
+    print("Scraping profile information ...")
 
     try:
         # Wait longer for the page to fully load
@@ -797,7 +834,7 @@ def scrape_profile_info(driver: WebDriver, base_dir: str):
 
 
 def scrape_pinned_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[bool, WebDriver]:
-    print("Scraping pinned videos...\n")
+    print("Scraping pinned videos ...\n")
 
     try:
         # Wait for video grid to load
@@ -822,7 +859,7 @@ def scrape_pinned_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tu
 
 
 def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[bool, WebDriver]:
-    print("Scraping videos...\n")
+    print("Scraping videos ...\n")
     
     try:
         # Wait for initial video grid to load
@@ -831,7 +868,7 @@ def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[boo
         )
         
         # Scroll to load all videos first
-        print("Loading all videos...\n")
+        print("Loading all videos ...\n")
 
         last_height = driver.execute_script("return document.documentElement.scrollHeight")
 
@@ -874,47 +911,6 @@ def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[boo
 
 #endregion
 
-def get_video_without_watermark(video_url: str) -> Optional[str]:
-    """Download video without watermark using yt-dlp"""
-    try:
-        import yt_dlp
-        
-        ydl_opts = {
-            'format': 'best',
-            'quiet': True,
-            'no_warnings': True,
-            'extract_flat': False
-        }
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(video_url, download=False)
-            if 'url' in result:
-                return result['url']
-    except Exception as e:
-        print(f"Error getting video without watermark: {str(e)}")
-    return None
-
-
-# Function declaration "download_video" is obscured by a declaration of the same name (Pylance)
-# def download_video(url, path) -> bool:
-#     """Download video file using yt-dlp"""
-#     try:
-#         import yt_dlp
-        
-#         ydl_opts = {
-#             'format': 'best',
-#             'quiet': True,
-#             'no_warnings': True,
-#             'outtmpl': path
-#         }
-        
-#         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-#             ydl.download([url])
-#             return True
-            
-#     except Exception as e:
-#         raise Exception(f"Failed to download video: {str(e)}")
-
 
 #region MAIN
 
@@ -923,7 +919,7 @@ def main():
     os.system('cls' if os.name == 'nt' else 'clear')
     
     # Install required dependencies first
-    print("Checking and installing dependencies...")
+    print("Checking and installing dependencies ...")
     install_dependencies()
     
     # Clear screen again after dependency installation
@@ -943,7 +939,7 @@ def main():
         for i, username in enumerate(usernames, 1):
             # Initialize browser per user to prevent long-run crashes and memory issues
             # ... can't do right now due to CAPTCHA
-            #print("\nInitializing browser...")
+            #print("\nInitializing browser ...")
             #
             #driver = setup_chrome_profile()
 
@@ -956,7 +952,7 @@ def main():
             driver = initialize_browser_for_user(driver, username=username)
 
             if driver is None:
-                print(f"Failed to load TikTok page for @{username}, skipping to next account...\n")
+                print(f"Failed to load TikTok page for @{username}, skipping to next account ...\n")
                 continue
 
             # Scrape profile information
