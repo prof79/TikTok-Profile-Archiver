@@ -93,9 +93,10 @@ def get_tiktok_id_from_url(url: str) -> Optional[str]:
     return None
 
 
-def save_url_to_file(base_path: str, url: str) -> None:
+def save_url_to_file(base_path: str, url: str, *, file_name: Optional[str]=None) -> None:
 
-    file_name = get_file_name_from_url(url)
+    if file_name is None:
+        file_name = get_file_name_from_url(url)
 
     with requests.get(url) as response:
 
@@ -652,7 +653,7 @@ def save_photos(driver: WebDriver, user_dir: str, media_dir: str, index: int, me
 
             if audio_source is not None:
                 print(f'Saving audio {audio_source} ...')
-                save_url_to_file(photos_path, audio_source)
+                save_url_to_file(photos_path, audio_source, file_name=tiktok_id)
         
         except:
             pass
