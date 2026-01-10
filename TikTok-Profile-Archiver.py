@@ -1,9 +1,11 @@
+import argparse
 import mimetypes
 import os
 import sys
 import time
-import requests
 import subprocess
+
+import requests
 
 from datetime import datetime
 from getpass import getpass
@@ -36,6 +38,15 @@ def clean_user_name(user_name: str) -> str:
         .replace('https://www.tiktok.com/', '') \
         .replace('/', '') \
         .lstrip('@')
+
+
+def parse_user_names(combined_user_names: str, *, separator: str=',') -> list[str]:
+
+    user_names = [clean_user_name(user_name) for user_name in combined_user_names.split(separator) if user_name]
+
+    unique_users = list(dict.fromkeys(user_names))
+
+    return unique_users
 
 
 def get_profile_url(user_name: str) -> str:
@@ -77,6 +88,27 @@ def save_url_to_file(base_path: str, url: str) -> None:
 
             with open(file_path, 'wb') as file:
                 file.write(response.content)
+
+#endregion
+
+#region Argument Handling
+
+def get_arguments() -> argparse.Namespace:
+
+    parser = argparse.ArgumentParser(
+        prog=__file__,
+        description='TikTok Profile Archiver',
+    )
+
+    parser.add_argument(
+        '-u', '--users',
+        default=None,
+        metavar='USERS',
+        dest='users',
+        help='TikTok user names separated by comma',
+    )
+
+    return parser.parse_args()
 
 #endregion
 
@@ -125,13 +157,13 @@ This allows for:
 
 def get_user_choices():
 
-    print("\nEnter TikTok profile Usernames (separated by commas): https://www.tiktok.com/@", end="")
+    print("\nEnter TikTok profile user name(s) separated by commas: https://www.tiktok.com/@", end="")
     
-    usernames_input = input().strip()
+    user_names_input = input().strip()
+    
+    print()
 
-    usernames = [clean_user_name(username) for username in usernames_input.split(',')]
-    
-    return usernames
+    return parse_user_names(user_names_input)
 
     print("""
 Select backup options (enter numbers separated by commas):
@@ -145,7 +177,7 @@ Enter your choices (e.g., 1,2,3,4 or 5): """, end="")
     
     choices = input().strip()
 
-    #return usernames, choices
+    #return user_names, choices
 
 #endregion
 
@@ -216,11 +248,11 @@ def handle_empty_directory(directory, message="No content was found to scrape fo
             f.write(message)
 
 
-def create_backup_structure(username: str) -> str:
+def create_backup_structure(user_name: str) -> str:
     """Creates the backup directory structure and handles empty folders.
     
-    :param username: TikTok user name. Will be sanitized.
-    :type username: str
+    :param user_name: TikTok user name. Will be sanitized.
+    :type user_name: str
 
     :return: The backup directory base path for the given user.
     :rtype: str
@@ -238,8 +270,8 @@ def create_backup_structure(username: str) -> str:
     date_str = datetime.now().strftime('%Y-%m-%d_%H%M')
 
     # People often use _ at the end so this is a bad separator
-    #base_dir = f"@{username}_{date_str}"
-    base_dir = f"@{username} {date_str}"
+    #base_dir = f"@{user_name}_{date_str}"
+    base_dir = f"@{user_name} {date_str}"
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(script_dir, base_dir)
@@ -488,7 +520,7 @@ def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements:
 
                 components = [part.strip() for part in container.text.split('·') if part.strip()]
 
-                username = components[0]
+                meta_user_name = components[0]
                 date = components[1]
 
                 try:
@@ -500,7 +532,7 @@ def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements:
 
                 # Save metadata
                 with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
-                    f.write(f"@{username}\n")
+                    f.write(f"@{meta_user_name}\n")
                     f.write("·\n")
                     f.write(f"Date - {date}\n")
                     f.write("·\n")
@@ -711,15 +743,15 @@ def detect_captcha(driver: WebDriver) -> bool:
 
 #region Scraping
 
-def initialize_browser_for_user(driver: Optional[WebDriver], username: str) -> Optional[WebDriver]:
+def initialize_browser_for_user(driver: Optional[WebDriver], user_name: str) -> Optional[WebDriver]:
 
-    profile_url = get_profile_url(username)
+    profile_url = get_profile_url(user_name)
 
     if driver is None:
         driver = setup_chrome_profile()
 
     if not handle_tiktok_page_load(driver, profile_url):
-        print(f"Failed to load TikTok page for @{username}, skipping to next account ...")
+        print(f"Failed to load TikTok page for @{user_name}, skipping to next account ...")
         return None
 
     # Handle CAPTCHA
@@ -921,6 +953,9 @@ def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[boo
 #region MAIN
 
 def main():
+    # Invoke command-line parser
+    args = get_arguments()
+
     # Clear the screen first
     os.system('cls' if os.name == 'nt' else 'clear')
     
@@ -934,50 +969,60 @@ def main():
     # Now display welcome message
     display_welcome_message()
     
-    # Get user input
-    #usernames, choices = get_user_choices()
-    usernames = get_user_choices()
+    # Get input from user or command-line
+
+    user_names: list[str] = []
+
+    if args.users is None:
+        #user_names, choices = get_user_choices()
+        user_names = get_user_choices()
+
+    else:
+        user_names = parse_user_names(args.users)
+
+        print(f'Users specified: @{'@,'.join(user_names)}')
+        print()
 
     driver = setup_chrome_profile()
 
     try:
-        # Process each username
-        for i, username in enumerate(usernames, 1):
+        # Process each user name
+        for i, user_name in enumerate(user_names, 1):
             # Initialize browser per user to prevent long-run crashes and memory issues
             # ... can't do right now due to CAPTCHA
             #print("\nInitializing browser ...")
             #
             #driver = setup_chrome_profile()
 
-            print(f"Processing account {i}/{len(usernames)}: @{username}\n")
+            print(f"Processing account {i}/{len(user_names)}: @{user_name}\n")
             
             # Create backup directory structure
-            base_dir = create_backup_structure(username)
+            base_dir = create_backup_structure(user_name)
             
             # Navigate to profile with handling for automation detection
-            driver = initialize_browser_for_user(driver, username=username)
+            driver = initialize_browser_for_user(driver, user_name=user_name)
 
             if driver is None:
-                print(f"Failed to load TikTok page for @{username}, skipping to next account ...\n")
+                print(f"Failed to load TikTok page for @{user_name}, skipping to next account ...\n")
                 continue
 
             # Scrape profile information
             if not scrape_profile_info(driver, base_dir):
-                print(f"Warning: Failed to scrape profile information for @{username}.\n")
+                print(f"Warning: Failed to scrape profile information for @{user_name}.\n")
             
             # Scrape pinned videos
-            pinned_ok, driver = scrape_pinned_videos(driver, username, base_dir)
+            pinned_ok, driver = scrape_pinned_videos(driver, user_name, base_dir)
 
             if not pinned_ok:
-                print(f"Warning: Failed to scrape pinned videos for @{username}.\n")
+                print(f"Warning: Failed to scrape pinned videos for @{user_name}.\n")
             
-            videos_ok, driver = scrape_videos(driver, username, base_dir)
+            videos_ok, driver = scrape_videos(driver, user_name, base_dir)
 
             # Scrape videos
             if not videos_ok:
-                print(f"Warning: Failed to scrape videos for @{username}.\n")
+                print(f"Warning: Failed to scrape videos for @{user_name}.\n")
             
-            print(f"Backup completed for @{username}.\n")
+            print(f"Backup completed for @{user_name}.\n")
 
             # Can't do right now due to CAPTCHA
             #driver.quit()
