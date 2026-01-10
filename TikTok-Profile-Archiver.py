@@ -173,7 +173,7 @@ def setup_chrome_profile() -> WebDriver:
     
     # Close any existing Chrome instances
     os.system("taskkill /f /im chrome.exe")
-    time.sleep(2)
+    time.sleep(4)
     
     # try:
     #     driver = webdriver.Chrome(options=chrome_options)
@@ -188,16 +188,22 @@ def setup_chrome_profile() -> WebDriver:
     
     try:
         chrome_options = webdriver.ChromeOptions()
+
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         chrome_options.add_argument('--disable-blink-features=AutomationControlled')
+        
         driver = webdriver.Chrome(options=chrome_options)
+        
+        time.sleep(2)
+
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
         return driver
 
     except Exception as e:
         print(f"Error with alternative method: {str(e)}")
-        sys.exit("Could not initialize Chrome. Please make sure Chrome is installed.")
+        sys.exit("Could not initialize Chrome. Please make sure Chrome is installed.\n\n")
 
 #endregion
 
