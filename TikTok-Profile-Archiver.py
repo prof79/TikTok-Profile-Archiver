@@ -1,6 +1,7 @@
 import argparse
 import mimetypes
 import os
+import re
 import sys
 import time
 import subprocess
@@ -10,6 +11,7 @@ import requests
 from datetime import datetime
 from getpass import getpass
 from pathlib import Path
+from re import Pattern
 from typing import Any, Final, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -26,6 +28,9 @@ from selenium.webdriver.support import expected_conditions as EC
 #region Constants
 
 USER_AGENT: Final[str] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+
+URL_STRING_PATTERN: Final[str] = r'^(?:\S+ URL:)?\s*https://www.tiktok.com/@[^/]+/(?:video|photo)/(\d+)'
+URL_PATTERN: Final[Pattern[str]] = re.compile(URL_STRING_PATTERN, re.IGNORECASE)
 
 #endregion
 
@@ -68,6 +73,24 @@ def get_file_name_from_url(url: str) -> str:
     file_name = str(parsed_url.path).split('/')[-1]
 
     return file_name
+
+
+def get_tiktok_id_from_url(url: str) -> Optional[str]:
+    """Fetches the medium/posting ID form a TikTok URL.
+
+    param url: The URL to parse.
+    type url: str
+
+    return: The parsed ID.
+    rtype: str
+    """
+
+    parsed_url = re.match(URL_PATTERN, url)
+
+    if parsed_url is not None:
+        return parsed_url.group(1)
+
+    return None
 
 
 def save_url_to_file(base_path: str, url: str) -> None:
@@ -270,45 +293,45 @@ def create_backup_structure(user_name: str) -> str:
     date_str = datetime.now().strftime('%Y-%m-%d_%H%M')
 
     # People often use _ at the end so this is a bad separator
-    #base_dir = f"@{user_name}_{date_str}"
-    base_dir = f"@{user_name} {date_str}"
+    #user_dir = f"@{user_name}_{date_str}"
+    user_dir = f"@{user_name} {date_str}"
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    base_dir = os.path.join(script_dir, base_dir)
+    user_path = os.path.join(script_dir, user_dir)
     
     # Updated directory structure without comments folder
     directories: dict[str, dict[str, Any]] = {
         "01_profile": {
-            "path": os.path.join(base_dir, "01_profile"),
+            "path": os.path.join(user_path, "01_profile"),
             "subdirs": ["01_avatar", "02_bio", "03_stats"],
             "message": "No profile information was found to scrape."
         },
         "02_pinned_videos": {
-            "path": os.path.join(base_dir, "02_pinned_videos"),
+            "path": os.path.join(user_path, "02_pinned_videos"),
             "message": "No pinned videos were found on this profile."
         },
         "03_playlists": {
-            "path": os.path.join(base_dir, "03_playlists"),
+            "path": os.path.join(user_path, "03_playlists"),
             "message": "No playlists were found on this profile."
         },
         "04_videos": {
-            "path": os.path.join(base_dir, "04_videos"),
+            "path": os.path.join(user_path, "04_videos"),
             "message": "No videos were found on this profile."
         },
         "05_reposts": {  # Renumbered from 06
-            "path": os.path.join(base_dir, "05_reposts"),
+            "path": os.path.join(user_path, "05_reposts"),
             "message": "No reposts were found on this profile."
         },
         "06_favorites": {  # Renumbered from 07
-            "path": os.path.join(base_dir, "06_favorites"),
+            "path": os.path.join(user_path, "06_favorites"),
             "message": "No favorites were found on this profile."
         },
         "07_liked": {  # Renumbered from 08
-            "path": os.path.join(base_dir, "07_liked"),
+            "path": os.path.join(user_path, "07_liked"),
             "message": "No liked videos were found on this profile."
         },
         "08_html_snapshot": {  # Renumbered from 09
-            "path": os.path.join(base_dir, "08_html_snapshot"),
+            "path": os.path.join(user_path, "08_html_snapshot"),
             "message": "No HTML snapshot was created for this profile."
         }
     }
@@ -324,7 +347,7 @@ def create_backup_structure(user_name: str) -> str:
         
         handle_empty_directory(dir_info["path"], dir_info["message"])
     
-    return base_dir
+    return user_path
 
 #endregion
 
@@ -385,75 +408,81 @@ def get_video_without_watermark(video_url: str) -> Optional[str]:
     return None
 
 
-def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements: list[WebElement], folder_name: str='04_videos') -> WebDriver:
+def save_media(driver: WebDriver, user_name: str, user_dir: str, media_elements: list[WebElement], media_dir: str='04_videos') -> WebDriver:
 
     media_urls: list[str] = []
 
-    for idx, medium in enumerate(media_elements, 1):
+    for index, medium in enumerate(media_elements, 1):
 
         try:
-            print(f"Collecting video URL {idx}/{len(media_elements)} ...")
+            print(f"Collecting video URL {index}/{len(media_elements)} ...")
 
             # Get medium link
             medium_link = medium.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
 
             if medium_link is None:
-                print(f'Error: Link URL for medium {idx} not found.')
+                print(f'Error: Link URL for medium {index} not found.')
 
             else:
                 print(medium_link, '\n')
                 media_urls.append(medium_link)
 
         except Exception as e:
-            print(f"Error processing medium {idx}: {str(e)}")
+            print(f"Error processing medium {index}: {str(e)}")
             continue
 
     print()
 
-    for idx, medium_link in enumerate(media_urls, 1):
+    for index, medium_link in enumerate(media_urls, 1):
 
         try:
-            print(f"Processing medium {idx}/{len(media_urls)} {medium_link} ...\n")
+            print(f"Processing medium {index}/{len(media_urls)} {medium_link} ...\n")
             
             # Re-create Selenium/Chrome session after 1000 videos to prevent stale sessions
-            if idx % 1000 == 0:
+            if index % 1000 == 0:
                 new_driver = initialize_browser_for_user(None, user_name)
 
                 if new_driver is None:
-                    raise RuntimeError(f'@{user_name}: Browser could not be re-initialized on medium {idx}.')
+                    raise RuntimeError(f'@{user_name}: Browser could not be re-initialized on medium {index}.')
                 
                 driver = new_driver
 
             if '/photo/' in medium_link.lower():
-                save_photos(driver, base_dir, folder_name, idx, medium_link)
+                save_photos(driver, user_dir, media_dir, index, medium_link)
                 continue
 
-            # Create initial folder name (without private suffix)
-            base_video_path = os.path.join(base_dir, folder_name, f"video_{idx}")
+            # Create directory for media and metadata
 
-            video_path = os.path.join(base_video_path, "video.mp4")
+            video_dir = f"{str(index).zfill(4)}_video"
 
-            os.makedirs(base_video_path, exist_ok=True)
+            tiktok_id = get_tiktok_id_from_url(medium_link)
+
+            if tiktok_id is not None:
+                video_dir = f'{tiktok_id}_video'
+
+            full_video_dir = os.path.join(user_dir, media_dir, video_dir)
+
+            video_path = os.path.join(full_video_dir, "video.mp4")
+
+            os.makedirs(full_video_dir, exist_ok=True)
 
             download_success = download_video(medium_link, video_path)
 
             if download_success:
-                print(f"Video {idx} downloaded successfully.")
+                print(f"Video {index} downloaded successfully.")
 
             else:
-                print(f"Error downloading video {idx}.")
+                print(f"Error downloading video {index}.")
             
-            # Determine final folder name based on download success
-            final_folder_name = f"video_{idx}_PRIVATE-VIDEO" if not download_success else f"video_{idx}"
-
-            final_path = os.path.join(base_dir, folder_name, final_folder_name)
+            # Determine final directory name based on download success
+            final_video_dir = f"{full_video_dir}_PRIVATE" if not download_success else full_video_dir
             
             # If the folder exists with a different name, rename it
-            if os.path.exists(base_video_path) and not download_success:
-                os.rename(base_video_path, final_path)
+            if os.path.exists(full_video_dir) and not download_success:
+                os.rename(full_video_dir, final_video_dir)
 
-            elif not os.path.exists(final_path):
-                os.makedirs(final_path, exist_ok=True)
+            elif not os.path.exists(final_video_dir):
+                os.makedirs(final_video_dir, exist_ok=True)
             
             # Now open video in new tab to get metadata
             original_window = driver.current_window_handle
@@ -471,7 +500,6 @@ def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements:
             print('Fetching video metadata ...')
 
             try:
-
                 # Get optional music info
                 music = '-'
 
@@ -531,7 +559,7 @@ def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements:
                     description = ''
 
                 # Save metadata
-                with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
+                with open(os.path.join(final_video_dir, "info.txt"), 'w', encoding='utf-8') as f:
                     f.write(f"@{meta_user_name}\n")
                     f.write("·\n")
                     f.write(f"Date - {date}\n")
@@ -556,7 +584,7 @@ def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements:
             except Exception as e:
                 print(f"Error getting video metadata: {str(e)}")
                 # Save at least the URL if metadata fails
-                with open(os.path.join(final_path, "info.txt"), 'w', encoding='utf-8') as f:
+                with open(os.path.join(final_video_dir, "info.txt"), 'w', encoding='utf-8') as f:
                     f.write(f"Video URL: {medium_link}\n")
 
             finally:
@@ -567,7 +595,7 @@ def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements:
                 print('Done.\n')
 
         except Exception as e:
-            print(f"Error processing video {idx}: {str(e)}")
+            print(f"Error processing video {index}: {str(e)}")
             continue
 
     return driver
@@ -576,13 +604,22 @@ def save_media(driver: WebDriver, user_name: str, base_dir: str, media_elements:
 
 #region Slideshow Handling
 
-def save_photos(driver: WebDriver, base_dir: str, folder_name: str, idx: int, medium_link: str) -> None:
+def save_photos(driver: WebDriver, user_dir: str, media_dir: str, index: int, medium_link: str) -> None:
 
     print('Medium is a photo/slideshow.\n')
 
-    # Create initial folder name (without private suffix)
-    base_path = os.path.join(base_dir, folder_name, f"photos_{idx}")
-    os.makedirs(base_path, exist_ok=True)
+    # Create directory for media and metadata
+
+    photos_dir = f"{str(index).zfill(4)}_photos"
+
+    tiktok_id = get_tiktok_id_from_url(medium_link)
+
+    if tiktok_id is not None:
+        photos_dir = f'{tiktok_id}_photos'
+
+    photos_path = os.path.join(user_dir, media_dir, photos_dir)
+
+    os.makedirs(photos_path, exist_ok=True)
     
     # Now open slideshow in new tab to get photos
     original_window = driver.current_window_handle
@@ -607,7 +644,7 @@ def save_photos(driver: WebDriver, base_dir: str, folder_name: str, idx: int, me
 
             if image_source is not None:
                 print(f'Saving photo {image_source} ...')
-                save_url_to_file(base_path, image_source)
+                save_url_to_file(photos_path, image_source)
 
         try:
             audio = driver.find_element(By.TAG_NAME, 'audio')
@@ -615,7 +652,7 @@ def save_photos(driver: WebDriver, base_dir: str, folder_name: str, idx: int, me
 
             if audio_source is not None:
                 print(f'Saving audio {audio_source} ...')
-                save_url_to_file(base_path, audio_source)
+                save_url_to_file(photos_path, audio_source)
         
         except:
             pass
@@ -625,7 +662,7 @@ def save_photos(driver: WebDriver, base_dir: str, folder_name: str, idx: int, me
 
     finally:
         # Save the URL as metadata
-        with open(os.path.join(base_path, "info.txt"), 'w', encoding='utf-8') as f:
+        with open(os.path.join(photos_path, "info.txt"), 'w', encoding='utf-8') as f:
             f.write(f"Slideshow URL: {medium_link}\n")
 
         # Close video tab and return to main window
@@ -711,17 +748,17 @@ def handle_login_interests_dialog(driver: WebDriver) -> None:
         # Additional wait for content to load
         time.sleep(2)
 
-        login_buttons = login_dialog.find_elements(By.XPATH, '//button[text()="Skip"]')
+        login_buttons = login_dialog.find_elements(By.XPATH, '//button[contains(text(), "Skip")]')
 
         if len(login_buttons) == 0:
             print('Login buttons not found.')
 
         else:
-            print('Login buttons found, skipping ...')
+            print('Login buttons found, skipping dialog ...')
             login_buttons[0].click()
 
     except Exception as ex:
-        print('Login banner or buttons not found.')
+        print('Login dialog not found.')
 
     print()
 
@@ -771,7 +808,7 @@ def initialize_browser_for_user(driver: Optional[WebDriver], user_name: str) -> 
     return driver
 
 
-def scrape_profile_info(driver: WebDriver, base_dir: str):
+def scrape_profile_info(driver: WebDriver, user_dir: str):
     print("Scraping profile information ...")
 
     try:
@@ -816,13 +853,13 @@ def scrape_profile_info(driver: WebDriver, base_dir: str):
             website = "None"
         
         # Save bio and stats as plain text
-        bio_path = os.path.join(base_dir, "01_profile", "02_bio", "bio.txt")
+        bio_path = os.path.join(user_dir, "01_profile", "02_bio", "bio.txt")
 
         with open(bio_path, 'w', encoding='utf-8') as f:
             f.write(f"{following}\nFollowing\n{followers}\nFollowers\n{likes}\nLikes\n{bio}\n{website}")
         
         # Save stats separately
-        stats_path = os.path.join(base_dir, "01_profile", "03_stats", "stats.txt")
+        stats_path = os.path.join(user_dir, "01_profile", "03_stats", "stats.txt")
         with open(stats_path, 'w', encoding='utf-8') as f:
             f.write(f"Following: {following}\nFollowers: {followers}\nLikes: {likes}")
         
@@ -840,7 +877,7 @@ def scrape_profile_info(driver: WebDriver, base_dir: str):
             
             if avatar_url:
                 print(f"Found avatar URL: {avatar_url}")
-                avatar_path = os.path.join(base_dir, "01_profile", "01_avatar", "avatar.jpeg")
+                avatar_path = os.path.join(user_dir, "01_profile", "01_avatar", "avatar.jpeg")
                 
                 # Download with headers
                 headers = {
@@ -871,8 +908,8 @@ def scrape_profile_info(driver: WebDriver, base_dir: str):
         return False
 
 
-def scrape_pinned_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[bool, WebDriver]:
-    print("Scraping pinned videos ...\n")
+def scrape_pinned_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[bool, WebDriver]:
+    print("Scraping pinned media ...\n")
 
     try:
         # Wait for video grid to load
@@ -881,23 +918,23 @@ def scrape_pinned_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tu
         )
         
         # Get first 3 videos (pinned)
-        video_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")[:3]
+        media_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")[:3]
 
-        print(f"Found {len(video_elements)} pinned videos.")
+        print(f"Found {len(media_elements)} pinned items.")
 
-        driver = save_media(driver, user_name, base_dir, video_elements, folder_name='02_pinned_videos')
+        driver = save_media(driver, user_name, user_dir, media_elements, media_dir='02_pinned_videos')
 
-        print("Pinned videos scraped successfully!")
+        print("Pinned items scraped successfully!")
 
         return (True, driver)
         
     except Exception as e:
-        print(f"Error scraping pinned videos: {str(e)}\n")
+        print(f"Error scraping pinned items: {str(e)}\n")
         return (False, driver)
 
 
-def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[bool, WebDriver]:
-    print("Scraping videos ...\n")
+def scrape_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[bool, WebDriver]:
+    print("Scraping media ...\n")
     
     try:
         # Wait for initial video grid to load
@@ -906,7 +943,7 @@ def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[boo
         )
         
         # Scroll to load all videos first
-        print("Loading all videos ...\n")
+        print("Loading all media ...\n")
 
         last_height = driver.execute_script("return document.documentElement.scrollHeight")
 
@@ -915,7 +952,7 @@ def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[boo
             #print(f'Last height: {last_height}')
             # Scroll down to bottom
             driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-            time.sleep(2.4)  # Wait for new videos to load
+            time.sleep(3.5)  # Wait for new videos to load
 
             print('Scrolling ...')
 
@@ -932,19 +969,19 @@ def scrape_videos(driver: WebDriver, user_name: str, base_dir: str) -> Tuple[boo
         print('Scrolling successful.\n')
 
         # Now get all video elements after everything is loaded
-        video_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")
-        total_videos = len(video_elements)
+        media_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")
+        total_media = len(media_elements)
 
-        print(f"Found {total_videos} videos total.\n")
+        print(f"Found {total_media} items total.\n")
 
-        driver = save_media(driver, user_name, base_dir, video_elements)
+        driver = save_media(driver, user_name, user_dir, media_elements)
 
-        print("Videos scraped successfully!\n")
+        print("Media scraped successfully!\n")
 
         return (True, driver)
         
     except Exception as e:
-        print(f"Error scraping videos: {str(e)}\n")
+        print(f"Error scraping media: {str(e)}\n")
         return (False, driver)
 
 #endregion
@@ -980,24 +1017,24 @@ def main():
     else:
         user_names = parse_user_names(args.users)
 
-        print(f'Users specified: @{'@,'.join(user_names)}')
+        print(f'Users specified: @{',@'.join(user_names)}')
         print()
 
     driver = setup_chrome_profile()
 
     try:
         # Process each user name
-        for i, user_name in enumerate(user_names, 1):
+        for index, user_name in enumerate(user_names, 1):
             # Initialize browser per user to prevent long-run crashes and memory issues
             # ... can't do right now due to CAPTCHA
             #print("\nInitializing browser ...")
             #
             #driver = setup_chrome_profile()
 
-            print(f"Processing account {i}/{len(user_names)}: @{user_name}\n")
+            print(f"Processing account {index}/{len(user_names)}: @{user_name}\n")
             
             # Create backup directory structure
-            base_dir = create_backup_structure(user_name)
+            user_dir = create_backup_structure(user_name)
             
             # Navigate to profile with handling for automation detection
             driver = initialize_browser_for_user(driver, user_name=user_name)
@@ -1007,16 +1044,16 @@ def main():
                 continue
 
             # Scrape profile information
-            if not scrape_profile_info(driver, base_dir):
+            if not scrape_profile_info(driver, user_dir):
                 print(f"Warning: Failed to scrape profile information for @{user_name}.\n")
             
             # Scrape pinned videos
-            pinned_ok, driver = scrape_pinned_videos(driver, user_name, base_dir)
+            pinned_ok, driver = scrape_pinned_videos(driver, user_name, user_dir)
 
             if not pinned_ok:
                 print(f"Warning: Failed to scrape pinned videos for @{user_name}.\n")
             
-            videos_ok, driver = scrape_videos(driver, user_name, base_dir)
+            videos_ok, driver = scrape_videos(driver, user_name, user_dir)
 
             # Scrape videos
             if not videos_ok:
