@@ -690,7 +690,7 @@ def handle_tiktok_page_load(driver, url):
         time.sleep(MAIN_PAGE_LOAD_TIMEOUT)  
 
         # Wait for body element to be present
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, BODY_DRIVER_WAIT_TIMEOUT).until(
             EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
         
@@ -706,7 +706,7 @@ def handle_cookie_banner(driver: WebDriver) -> None:
     print('Trying to detect and dismiss cookie banner ...')
 
     try:
-        cookie_banner = WebDriverWait(driver, 20).until(
+        cookie_banner = WebDriverWait(driver, COOKIE_BANNER_DRIVER_WAIT_TIMEOUT).until(
             EC.presence_of_element_located((By.TAG_NAME, 'tiktok-cookie-banner'))
         )
 
@@ -736,7 +736,7 @@ def handle_login_interests_dialog(driver: WebDriver) -> None:
     print('Trying to detect and dismiss login dialog ...')
 
     try:
-        login_dialog = WebDriverWait(driver, 2).until(
+        login_dialog = WebDriverWait(driver, LOGIN_CONTAINER_DRIVER_WAIT_TIMEOUT).until(
             EC.presence_of_element_located((By.ID, 'loginContainer'))
         )
 
@@ -763,7 +763,7 @@ def handle_login_interests_dialog(driver: WebDriver) -> None:
 def detect_captcha(driver: WebDriver) -> bool:
 
     try:
-        WebDriverWait(driver, 20).until(
+        WebDriverWait(driver, CAPTCHA_DRIVER_WAIT_TIMEOUT).until(
             EC.presence_of_element_located((By.CLASS_NAME, 'captcha-verify-container'))
         )
 
@@ -910,7 +910,7 @@ def scrape_pinned_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tu
 
     try:
         # Wait for video grid to load
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, POST_ITEM_DRIVER_WAIT_TIMEOUT).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']"))
         )
         
@@ -935,7 +935,7 @@ def scrape_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[boo
     
     try:
         # Wait for initial video grid to load
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, POST_ITEM_DRIVER_WAIT_TIMEOUT).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']"))
         )
         
