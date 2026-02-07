@@ -20,7 +20,7 @@ from typing import Final
 
 APP_NAME: Final[str] = "TikTok Profile Archiver"
 
-# Timeouts
+# Sleep Timeouts
 KILL_BROWSER_TIMEOUT: Final[int] = 5
 BROWSER_INIT_TIMEOUT: Final[int] = 4
 VIDEO_PAGE_LOAD_TIMEOUT: Final[int] = 3
@@ -29,7 +29,7 @@ MAIN_PAGE_LOAD_TIMEOUT: Final[int] = 5
 SMALL_CONTENT_LOAD_TIMEOUT: Final[int] = 2
 SCROLLING_LOAD_TIMEOUT: Final[int] = 5
 
-# WebDriverWait timeouts
+# WebDriverWait Timeouts
 BODY_DRIVER_WAIT_TIMEOUT: Final[int] = 10
 LOGIN_CONTAINER_DRIVER_WAIT_TIMEOUT: Final[int] = 2
 COOKIE_BANNER_DRIVER_WAIT_TIMEOUT: Final[int] = 20
