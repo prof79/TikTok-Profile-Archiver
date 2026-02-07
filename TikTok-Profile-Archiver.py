@@ -24,6 +24,8 @@ from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+from ttpa.constants import *
+
 
 #region Constants
 
@@ -229,7 +231,7 @@ def setup_chrome_profile() -> WebDriver:
     
     # Close any existing Chrome instances
     os.system("taskkill /f /im chrome.exe")
-    time.sleep(4)
+    time.sleep(KILL_BROWSER_TIMEOUT)
     
     # try:
     #     driver = webdriver.Chrome(options=chrome_options)
@@ -251,7 +253,7 @@ def setup_chrome_profile() -> WebDriver:
         
         driver = webdriver.Chrome(options=chrome_options)
         
-        time.sleep(2)
+        time.sleep(BROWSER_INIT_TIMEOUT)
 
         driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
@@ -493,7 +495,7 @@ def save_media(driver: WebDriver, user_name: str, user_dir: str, media_elements:
             driver.get(medium_link)
 
             # Wait for video page to load
-            time.sleep(3)
+            time.sleep(VIDEO_PAGE_LOAD_TIMEOUT)
 
             # Handle login dialog
             handle_login_interests_dialog(driver)
@@ -530,7 +532,9 @@ def save_media(driver: WebDriver, user_name: str, user_dir: str, media_elements:
 
                 try:
                     driver.find_element(By.ID, 'comments').click()
-                    time.sleep(2)
+
+                    time.sleep(COMMENTS_LOAD_TIMEOUT)
+
                     comment_count_text = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCommentCountContainer']").text
                     comment_count = int(comment_count_text.split(' ')[0])
 
@@ -630,7 +634,7 @@ def save_photos(driver: WebDriver, user_dir: str, media_dir: str, index: int, me
     driver.get(medium_link)
 
     # Wait for video page to load
-    time.sleep(3)
+    time.sleep(VIDEO_PAGE_LOAD_TIMEOUT)
 
     # Handle login dialog
     handle_login_interests_dialog(driver)
@@ -683,20 +687,12 @@ def handle_tiktok_page_load(driver, url):
         driver.get(url)
 
         # Wait for initial load
-        time.sleep(3)  
+        time.sleep(MAIN_PAGE_LOAD_TIMEOUT)  
 
-        # Refresh the page to bypass automation detection
-        # -> doesn't really help
-        #driver.refresh()
-        #time.sleep(3)  # Wait after refresh
-        
         # Wait for body element to be present
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.TAG_NAME, "body"))
         )
-        
-        # Additional wait for content to load
-        time.sleep(2)
         
         return True
 
@@ -747,7 +743,7 @@ def handle_login_interests_dialog(driver: WebDriver) -> None:
         print('Login dialog found.')
 
         # Additional wait for content to load
-        time.sleep(2)
+        time.sleep(SMALL_CONTENT_LOAD_TIMEOUT)
 
         login_buttons = login_dialog.find_elements(By.XPATH, '//button[contains(text(), "Skip")]')
 
@@ -813,9 +809,6 @@ def scrape_profile_info(driver: WebDriver, user_dir: str):
     print("Scraping profile information ...")
 
     try:
-        # Wait longer for the page to fully load
-        time.sleep(5)
-        
         # Get profile information using updated selectors
         try:
             # Get bio using JavaScript to get the full text content
@@ -861,6 +854,7 @@ def scrape_profile_info(driver: WebDriver, user_dir: str):
         
         # Save stats separately
         stats_path = os.path.join(user_dir, "01_profile", "03_stats", "stats.txt")
+
         with open(stats_path, 'w', encoding='utf-8') as f:
             f.write(f"Following: {following}\nFollowers: {followers}\nLikes: {likes}")
         
@@ -892,8 +886,10 @@ def scrape_profile_info(driver: WebDriver, user_dir: str):
                     with open(avatar_path, 'wb') as f:
                         f.write(response.content)
                     print("Avatar download successful.")
+
                 else:
                     print(f"Failed to download avatar: HTTP {response.status_code}")
+
             else:
                 print("Correct avatar URL could not be found.")
                 
@@ -953,7 +949,9 @@ def scrape_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[boo
             #print(f'Last height: {last_height}')
             # Scroll down to bottom
             driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
-            time.sleep(3.5)  # Wait for new videos to load
+
+            # Wait for new videos to load
+            time.sleep(SCROLLING_LOAD_TIMEOUT)
 
             print('Scrolling ...')
 
