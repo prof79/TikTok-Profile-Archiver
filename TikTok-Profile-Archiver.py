@@ -16,6 +16,7 @@ from typing import Any, Final, Optional, Tuple
 from urllib.parse import urlparse
 
 from rich import print
+from rich.progress import Progress, BarColumn, SpinnerColumn, TextColumn
 
 from selenium import webdriver
 from selenium.webdriver.chrome.webdriver import WebDriver
@@ -944,27 +945,31 @@ def scrape_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[boo
 
         last_height = driver.execute_script("return document.documentElement.scrollHeight")
 
-        while True:
+        with Progress(SpinnerColumn(), TextColumn('{task.description}'), BarColumn()) as progress:
 
-            #print(f'Last height: {last_height}')
-            # Scroll down to bottom
-            driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
+            scroll_task = progress.add_task('Scrolling for media', total=None)
 
-            # Wait for new videos to load
-            time.sleep(SCROLLING_LOAD_TIMEOUT)
+            while True:
 
-            print('Scrolling ...')
+                #print(f'Last height: {last_height}')
+                # Scroll down to bottom
+                driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
 
-            # Calculate new scroll height and compare with last scroll height
-            new_height = driver.execute_script("return document.documentElement.scrollHeight")
+                # Wait for new videos to load
+                time.sleep(SCROLLING_LOAD_TIMEOUT)
 
-            #print(f'New height: {new_height}')
+                # Calculate new scroll height and compare with last scroll height
+                new_height = driver.execute_script("return document.documentElement.scrollHeight")
 
-            if new_height == last_height:
-                break
+                #print(f'New height: {new_height}')
 
-            last_height = new_height
-        
+                if new_height == last_height:
+                    break
+
+                last_height = new_height
+
+            progress.remove_task(scroll_task)
+
         print('Scrolling successful.\n')
 
         # Now get all video elements after everything is loaded
