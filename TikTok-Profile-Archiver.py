@@ -1,3 +1,6 @@
+"""TikTok Profile Archiver"""
+
+
 import argparse
 import mimetypes
 import os
@@ -19,14 +22,16 @@ from urllib.parse import urlparse
 from rich import print
 from rich.progress import Progress, BarColumn, SpinnerColumn, TextColumn
 
-from selenium import webdriver
-from selenium.webdriver.chrome.webdriver import WebDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
+from ttpa.browser import create_browser
+from ttpa.browser.base import BrowserBase
 from ttpa.constants import *
+from ttpa.handlers.captcha import detect_captcha
+from ttpa.handlers.login_interests import handle_login_interests_dialog
+from ttpa.handlers.tiktok_page import handle_tiktok_page_load
 from ttpa.logging import setup_logging
 
 
@@ -137,6 +142,23 @@ def get_arguments() -> argparse.Namespace:
         help='TikTok user names separated by comma',
     )
 
+    parser.add_argument(
+        '-b', '--browser-name',
+        default=None,
+        metavar='BROWSER',
+        dest='browser_name',
+        choices=['chrome', 'edge', 'firefox'],
+        help='Browser to use (chrome, edge, firefox)',
+    )
+
+    parser.add_argument(
+        '--headless',
+        default=False,
+        action='store_true',
+        dest='headless',
+        help='Run browser in headless mode (no GUI)',
+    )
+    
     return parser.parse_args()
 
 #endregion
@@ -210,61 +232,24 @@ Enter your choices (e.g., 1,2,3,4 or 5): """, end="")
 
 #endregion
 
-#region Chrome Setup
+#region Browser Setup
 
-def setup_chrome_profile() -> WebDriver:
-    
-    print("Initializing browser ...\n")
-
-    chrome_options = webdriver.ChromeOptions()
-    
-    # Get the correct path for Windows
-    user_data_dir = os.path.join(os.environ['LOCALAPPDATA'], 'Google', 'Chrome', 'User Data')
-    
-    # Add necessary options to prevent crashes and detection
-    chrome_options.add_argument(f'--user-data-dir={user_data_dir}')
-    chrome_options.add_argument('--profile-directory=Default')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--remote-debugging-port=9222')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-    chrome_options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
-    chrome_options.add_experimental_option('useAutomationExtension', False)
-    
-    # Close any existing Chrome instances
-    os.system("taskkill /f /im chrome.exe")
-    time.sleep(KILL_BROWSER_TIMEOUT)
-    
-    # try:
-    #     driver = webdriver.Chrome(options=chrome_options)
-    #     # Mask selenium's presence
-    #     driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-    #     return driver
-    # except Exception as e:
-    #    print(f"Error initializing Chrome with profile: {str(e)}")
-
-    # From experience, "with profile" does not seem to work anymore
-    print("\nTrying alternative method without user profile ...\n")
+def initialize_browser(browser_name: Optional[str]=None, headless: bool=False) -> BrowserBase:
     
     try:
-        chrome_options = webdriver.ChromeOptions()
 
-        chrome_options.add_argument('--no-sandbox')
-        chrome_options.add_argument('--disable-dev-shm-usage')
-        chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        
-        driver = webdriver.Chrome(options=chrome_options)
-        
+        browser = create_browser(browser_name, headless=headless)
+
         time.sleep(BROWSER_INIT_TIMEOUT)
 
-        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        
-        return driver
+        browser.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+
+        return browser
 
     except Exception as e:
-        print(f"Error with alternative method: {str(e)}")
-        sys.exit("Could not initialize Chrome. Please make sure Chrome is installed.\n\n")
+        print(f"Error: {str(e)}")
+        display_browser_name = browser_name.capitalize() if browser_name else 'the specified browser'
+        sys.exit(f"Could not initialize browser. Please make sure {display_browser_name} is installed.\n\n")
 
 #endregion
 
@@ -414,7 +399,7 @@ def get_video_without_watermark(video_url: str) -> Optional[str]:
     return None
 
 
-def save_media(driver: WebDriver, user_name: str, user_dir: str, media_elements: list[WebElement], media_dir: str='04_videos') -> WebDriver:
+def save_media(driver: BrowserBase, user_name: str, user_dir: str, media_elements: list[WebElement], media_dir: str='04_videos') -> BrowserBase:
 
     media_urls: list[str] = []
 
@@ -446,7 +431,12 @@ def save_media(driver: WebDriver, user_name: str, user_dir: str, media_elements:
             
             # Re-create Selenium/Chrome session after 1000 videos to prevent stale sessions
             if index % 1000 == 0:
-                new_driver = initialize_browser_for_user(None, user_name)
+                new_driver = initialize_browser_for_user(
+                    None,
+                    user_name=user_name,
+                    browser_name=driver.name,
+                    headless=driver.headless,
+                )
 
                 if new_driver is None:
                     raise RuntimeError(f'@{user_name}: Browser could not be re-initialized on medium {index}.')
@@ -612,7 +602,7 @@ def save_media(driver: WebDriver, user_name: str, user_dir: str, media_elements:
 
 #region Slideshow Handling
 
-def save_photos(driver: WebDriver, user_dir: str, media_dir: str, index: int, medium_link: str) -> None:
+def save_photos(driver: BrowserBase, user_dir: str, media_dir: str, index: int, medium_link: str) -> None:
 
     print('Medium is a photo/slideshow.\n')
 
@@ -682,117 +672,21 @@ def save_photos(driver: WebDriver, user_dir: str, media_dir: str, index: int, me
 
 #endregion
 
-#region Page Handlers
-
-def handle_tiktok_page_load(driver, url):
-    try:
-        # Initial page load
-        driver.get(url)
-
-        # Wait for initial load
-        time.sleep(MAIN_PAGE_LOAD_TIMEOUT)  
-
-        # Wait for body element to be present
-        WebDriverWait(driver, BODY_DRIVER_WAIT_TIMEOUT).until(
-            EC.presence_of_element_located((By.TAG_NAME, "body"))
-        )
-        
-        return True
-
-    except Exception as e:
-        print(f"Error loading page: {str(e)}")
-        return False
-
-
-def handle_cookie_banner(driver: WebDriver) -> None:
-
-    print('Trying to detect and dismiss cookie banner ...')
-
-    try:
-        cookie_banner = WebDriverWait(driver, COOKIE_BANNER_DRIVER_WAIT_TIMEOUT).until(
-            EC.presence_of_element_located((By.TAG_NAME, 'tiktok-cookie-banner'))
-        )
-
-        print('Cookie banner found.')
-
-        #shadow_root = driver.execute_script('return arguments[0].shadowRoot', cookie_banner)
-        shadow_root = cookie_banner.shadow_root
-
-        cookie_buttons = shadow_root.find_elements(By.TAG_NAME, 'button')
-
-        if len(cookie_buttons) == 0:
-            print('Cookie buttons not found.')
-
-        else:
-            print('Cookie buttons found, clicking ...')
-            cookie_buttons[0].click()
-
-    except Exception as ex:
-        print('Cookie banner or buttons not found.')
-        print(ex)
-
-    print()
-
-
-def handle_login_interests_dialog(driver: WebDriver) -> None:
-
-    print('Trying to detect and dismiss login dialog ...')
-
-    try:
-        login_dialog = WebDriverWait(driver, LOGIN_CONTAINER_DRIVER_WAIT_TIMEOUT).until(
-            EC.presence_of_element_located((By.ID, 'loginContainer'))
-        )
-
-        print('Login dialog found.')
-
-        # Additional wait for content to load
-        time.sleep(SMALL_CONTENT_LOAD_TIMEOUT)
-
-        login_buttons = login_dialog.find_elements(By.XPATH, '//button[contains(text(), "Skip")]')
-
-        if len(login_buttons) == 0:
-            print('Login buttons not found.')
-
-        else:
-            print('Login buttons found, skipping dialog ...')
-            login_buttons[0].click()
-
-    except Exception as ex:
-        print('Login dialog not found.')
-
-    print()
-
-
-def detect_captcha(driver: WebDriver) -> bool:
-
-    try:
-        WebDriverWait(driver, CAPTCHA_DRIVER_WAIT_TIMEOUT).until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'captcha-verify-container'))
-        )
-
-        return True
-
-    except:
-
-        return False
-
-#endregion
-
 #region Scraping
 
-def initialize_browser_for_user(driver: Optional[WebDriver], user_name: str) -> Optional[WebDriver]:
+def initialize_browser_for_user(browser: Optional[BrowserBase], /, user_name: str, browser_name: Optional[str]=None, headless: bool=False) -> Optional[BrowserBase]:
 
     profile_url = get_profile_url(user_name)
 
-    if driver is None:
-        driver = setup_chrome_profile()
+    if browser is None:
+        browser = initialize_browser(browser_name, headless=headless)
 
-    if not handle_tiktok_page_load(driver, profile_url):
+    if not handle_tiktok_page_load(browser, profile_url):
         print(f"Failed to load TikTok page for @{user_name}, skipping to next account ...")
         return None
 
     # Handle CAPTCHA
-    captcha_present = detect_captcha(driver)
+    captcha_present = detect_captcha(browser)
 
     if captcha_present:
         print('PLEASE SOLVE THE CAPTCHA, THEN PRESS ENTER')
@@ -800,15 +694,15 @@ def initialize_browser_for_user(driver: Optional[WebDriver], user_name: str) -> 
         print()
 
     # Handle login dialog
-    handle_login_interests_dialog(driver)
+    handle_login_interests_dialog(browser)
 
     # Handle cookie banner
     #handle_cookie_banner(driver)
 
-    return driver
+    return browser
 
 
-def scrape_profile_info(driver: WebDriver, user_dir: str):
+def scrape_profile_info(driver: BrowserBase, user_dir: str):
     print("Scraping profile information ...")
 
     try:
@@ -908,13 +802,14 @@ def scrape_profile_info(driver: WebDriver, user_dir: str):
         return False
 
 
-def scrape_pinned_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[bool, WebDriver]:
+def scrape_pinned_videos(driver: BrowserBase, user_name: str, user_dir: str) -> Tuple[bool, BrowserBase]:
     print("Scraping pinned media ...\n")
 
     try:
         # Wait for video grid to load
-        WebDriverWait(driver, POST_ITEM_DRIVER_WAIT_TIMEOUT).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']"))
+        driver.wait_for(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']")),
+            timeout=POST_ITEM_DRIVER_WAIT_TIMEOUT
         )
         
         # Get first 3 videos (pinned)
@@ -933,13 +828,14 @@ def scrape_pinned_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tu
         return (False, driver)
 
 
-def scrape_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[bool, WebDriver]:
+def scrape_videos(driver: BrowserBase, user_name: str, user_dir: str) -> Tuple[bool, BrowserBase]:
     print("Scraping media ...\n")
     
     try:
         # Wait for initial video grid to load
-        WebDriverWait(driver, POST_ITEM_DRIVER_WAIT_TIMEOUT).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']"))
+        driver.wait_for(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "[data-e2e='user-post-item']")),
+            timeout=POST_ITEM_DRIVER_WAIT_TIMEOUT
         )
         
         # Scroll to load all videos first
@@ -1033,7 +929,7 @@ def main():
         print(f'Users specified: @{',@'.join(user_names)}')
         print()
 
-    driver = setup_chrome_profile()
+    driver = initialize_browser(browser_name=args.browser_name, headless=args.headless)
 
     try:
         # Process each user name
@@ -1052,7 +948,12 @@ def main():
             user_dir = create_backup_structure(user_name)
             
             # Navigate to profile with handling for automation detection
-            driver = initialize_browser_for_user(driver, user_name=user_name)
+            driver = initialize_browser_for_user(
+                driver,
+                user_name=user_name,
+                browser_name=args.browser_name,
+                headless=args.headless,
+            )
 
             if driver is None:
                 msg = f"Failed to load TikTok page for @{user_name}, skipping to next account ...\n"
