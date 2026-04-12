@@ -1045,7 +1045,6 @@ def main():
             #driver = setup_chrome_profile()
 
             msg = f"Processing account {index}/{len(user_names)}: @{user_name}\n"
-
             print(msg)
             info(msg)
             
@@ -1056,27 +1055,34 @@ def main():
             driver = initialize_browser_for_user(driver, user_name=user_name)
 
             if driver is None:
-                print(f"Failed to load TikTok page for @{user_name}, skipping to next account ...\n")
+                msg = f"Failed to load TikTok page for @{user_name}, skipping to next account ...\n"
+                print(msg)
+                warning(msg)
                 continue
 
             # Scrape profile information
             if not scrape_profile_info(driver, user_dir):
-                print(f"Warning: Failed to scrape profile information for @{user_name}.\n")
+                msg = f"Warning: Failed to scrape profile information for @{user_name}.\n"
+                print(msg)
+                warning(msg)
             
             # Scrape pinned videos
             pinned_ok, driver = scrape_pinned_videos(driver, user_name, user_dir)
 
             if not pinned_ok:
-                print(f"Warning: Failed to scrape pinned videos for @{user_name}.\n")
+                msg = f"Warning: Failed to scrape pinned videos for @{user_name}.\n"
+                print(msg)
+                warning(msg)
             
             videos_ok, driver = scrape_videos(driver, user_name, user_dir)
 
             # Scrape videos
             if not videos_ok:
-                print(f"Warning: Failed to scrape videos for @{user_name}.\n")
+                msg = f"Error: Failed to scrape videos for @{user_name}.\n"
+                print(msg)
+                error(msg)
             
             msg = f"Backup completed for @{user_name}.\n"
-            
             print(msg)
             info(msg)
 
@@ -1084,7 +1090,6 @@ def main():
             #driver.quit()
         
         msg = "All accounts processed successfully!"
-
         print(msg)
         info(msg)
 
