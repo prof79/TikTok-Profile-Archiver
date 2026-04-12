@@ -9,6 +9,7 @@ import subprocess
 import requests
 
 from datetime import datetime
+from logging import info, warning, error
 from getpass import getpass
 from pathlib import Path
 from re import Pattern
@@ -26,6 +27,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from ttpa.constants import *
+from ttpa.logging import setup_logging
 
 
 #region Constants
@@ -945,6 +947,8 @@ def scrape_videos(driver: WebDriver, user_name: str, user_dir: str) -> Tuple[boo
 
         last_height = driver.execute_script("return document.documentElement.scrollHeight")
 
+        driver.set_script_timeout(DRIVER_SCRIPT_TIMEOUT)
+
         with Progress(SpinnerColumn(), TextColumn('{task.description}'), BarColumn()) as progress:
 
             scroll_task = progress.add_task('Scrolling for media', total=None)
@@ -997,6 +1001,11 @@ def main():
     # Invoke command-line parser
     args = get_arguments()
 
+    # Set up logging to file
+    setup_logging()
+
+    info(f"Program started with arguments: {args}")
+
     # Clear the screen first
     os.system('cls' if os.name == 'nt' else 'clear')
     
@@ -1035,7 +1044,10 @@ def main():
             #
             #driver = setup_chrome_profile()
 
-            print(f"Processing account {index}/{len(user_names)}: @{user_name}\n")
+            msg = f"Processing account {index}/{len(user_names)}: @{user_name}\n"
+
+            print(msg)
+            info(msg)
             
             # Create backup directory structure
             user_dir = create_backup_structure(user_name)
@@ -1063,22 +1075,34 @@ def main():
             if not videos_ok:
                 print(f"Warning: Failed to scrape videos for @{user_name}.\n")
             
-            print(f"Backup completed for @{user_name}.\n")
+            msg = f"Backup completed for @{user_name}.\n"
+            
+            print(msg)
+            info(msg)
 
             # Can't do right now due to CAPTCHA
             #driver.quit()
         
-        print("All accounts processed successfully!")
+        msg = "All accounts processed successfully!"
+
+        print(msg)
+        info(msg)
 
     except KeyboardInterrupt:
-        print('Program aborted.')
+        msg = 'Program aborted.'
+        print(msg)
+        warning(msg)
 
     except Exception as e:
-        print(f"An error occurred: {str(e)}")
+        msg = f"An error occurred: {str(e)}"
+        print(msg)
+        error(msg)
 
     finally:
         if driver:
             driver.quit()
+        
+        info("Program finished.")
 
 #endregion
 
