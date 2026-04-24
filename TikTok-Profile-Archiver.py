@@ -242,8 +242,6 @@ def initialize_browser(browser_name: Optional[str]=None, headless: bool=False) -
 
         time.sleep(BROWSER_INIT_TIMEOUT)
 
-        browser.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
         return browser
 
     except Exception as e:

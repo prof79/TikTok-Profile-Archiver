@@ -16,6 +16,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.relative_locator import RelativeBy
 from selenium.webdriver.support.ui import WebDriverWait
 
+from ttpa.constants import WINDOW_SIZE
+
 from .base import DEFAULT_WAIT_TIMEOUT, BrowserBase
 
 
@@ -30,29 +32,42 @@ class ChromeBrowser(BrowserBase):
 
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
+        #options.add_argument('--disable-gpu')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-plugins')
+        options.add_argument('--disable-images')
+        #options.add_argument('--disable-javascript')  # If JS not needed
+        options.add_argument('--disable-web-security')
+        options.add_argument('--disable-features=TranslateUI')
+        options.add_argument('--disable-ipc-flooding-protection')
+        options.add_argument('--memory-pressure-off')
         options.add_argument('--disable-blink-features=AutomationControlled')
 
+        # Set window size to reduce rendering overhead
+        options.add_argument(f'--window-size={WINDOW_SIZE[0]},{WINDOW_SIZE[1]}')
+
         if headless:
+            # Use new headless mode (Chrome 109+)
             options.add_argument("--headless=new")
 
         # Get the correct path for Windows
         # user_data_dir = os.path.join(os.environ['LOCALAPPDATA'], 'Google', 'Chrome', 'User Data')
         
         # Add necessary options to prevent crashes and detection
-        # chrome_options.add_argument(f'--user-data-dir={user_data_dir}')
-        # chrome_options.add_argument('--profile-directory=Default')
-        # chrome_options.add_argument('--no-sandbox')
-        # chrome_options.add_argument('--disable-dev-shm-usage')
-        # chrome_options.add_argument('--remote-debugging-port=9222')
-        # chrome_options.add_argument('--disable-gpu')
-        # chrome_options.add_argument('--disable-blink-features=AutomationControlled')
-        # chrome_options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
-        # chrome_options.add_experimental_option('useAutomationExtension', False)
+        # options.add_argument(f'--user-data-dir={user_data_dir}')
+        # options.add_argument('--profile-directory=Default')
+        # options.add_argument('--remote-debugging-port=9222')
+        # options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
+        # options.add_experimental_option('useAutomationExtension', False)
 
         self.driver = WebDriver(service=Service(), options=options)
 
         self.wait = WebDriverWait(self.driver, DEFAULT_WAIT_TIMEOUT)
+
+        # Execute a script early to override navigator.webdriver
+        self.driver.execute_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        )
 
 
     def close(self) -> None:

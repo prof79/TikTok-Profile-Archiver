@@ -1,9 +1,13 @@
 """Firefox Web Browser Implementation"""
 
 
+import os
+
+from glob import glob
 from typing import Any, Callable, Literal, TypeVar
 
 from selenium.webdriver.firefox.webdriver import WebDriver
+from selenium.webdriver.firefox.firefox_profile import FirefoxProfile
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 
@@ -13,6 +17,8 @@ from selenium.webdriver.remote.webdriver import WebDriver as RemoteWebDriver
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.relative_locator import RelativeBy
 from selenium.webdriver.support.ui import WebDriverWait
+
+from ttpa.constants import WINDOW_SIZE
 
 from .base import DEFAULT_WAIT_TIMEOUT, BrowserBase
 
@@ -26,12 +32,60 @@ class FirefoxBrowser(BrowserBase):
     def __init__(self, headless: bool = False):
         options = Options()
 
+        # Keep images, CSS, JS enabled (default). Avoid prefs that disable features.
+
+        # Example realistic UA (match your Firefox version/platform)
+        options.set_preference("general.useragent.override",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0"
+        )
+
+        # attempt to disable webdriver flag
+        options.set_preference("dom.webdriver.enabled", False)
+
+        # no-op for FF but kept for parity
+        options.set_preference("useAutomationExtension", False)
+
         if headless:
             options.add_argument("-headless")
+
+        # Use a real profile so cookies, localStorage, and extensions look normal
+
+        # Get the correct path for Windows
+        user_profiles_dir = os.path.join(os.environ['LOCALAPPDATA'], 'Mozilla', 'Firefox', 'Profiles')
+
+        candidates = glob('*.default', root_dir=user_profiles_dir)
+
+        if len(candidates) > 0:
+            
+            user_profile_dir = os.path.join(user_profiles_dir, candidates[0])
+
+            print(f"Using Firefox profile: {user_profile_dir}\n")
+
+            profile = FirefoxProfile(user_profile_dir)
+
+            # Keep images, CSS, JS enabled (default). Avoid prefs that disable features.
+
+            # attempt to disable webdriver flag
+            profile.set_preference("dom.webdriver.enabled", False)
+            
+            # no-op for FF but kept for parity
+            profile.set_preference("useAutomationExtension", False)
+
+            profile.update_preferences()
+
+            options.profile = profile
 
         self.driver = WebDriver(service=Service(), options=options)
 
         self.wait = WebDriverWait(self.driver, DEFAULT_WAIT_TIMEOUT)
+
+        # Execute a script early to override navigator.webdriver
+        self.driver.execute_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+        )
+
+        # Set a realistic window size and timezone/locale if needed
+        self.driver.set_window_size(WINDOW_SIZE[0], WINDOW_SIZE[1])
 
 
     def close(self) -> None:
