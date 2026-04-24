@@ -128,6 +128,11 @@ class EdgeBrowser(BrowserBase):
         return "edge"
 
 
+    def refresh(self) -> None:
+        """Refreshes the current page."""
+        self.driver.refresh()
+
+
     def set_script_timeout(self, time_to_wait: float) -> None:
         self.driver.set_script_timeout(time_to_wait)
 

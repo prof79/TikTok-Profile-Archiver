@@ -16,7 +16,12 @@ def handle_tiktok_page_load(browser: BrowserBase, url: str) -> bool:
         browser.get(url)
 
         # Wait for initial load
-        time.sleep(MAIN_PAGE_LOAD_TIMEOUT)  
+        time.sleep(MAIN_PAGE_LOAD_TIMEOUT)
+
+        browser.refresh()
+
+        # Wait after refresh
+        time.sleep(MAIN_PAGE_LOAD_TIMEOUT)
 
         # Wait for body element to be present
         browser.wait_for(

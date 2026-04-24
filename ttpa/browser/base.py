@@ -96,6 +96,12 @@ class BrowserBase(ABC):
 
 
     @abstractmethod
+    def refresh(self) -> None:
+        """Refreshes the current page."""
+        ...
+
+
+    @abstractmethod
     def set_script_timeout(self, time_to_wait: float) -> None: ...
 
 
