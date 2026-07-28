@@ -52,7 +52,8 @@ def clean_user_name(user_name: str) -> str:
         .strip() \
         .replace('https://www.tiktok.com/', '') \
         .replace('/', '') \
-        .lstrip('@')
+        .lstrip('@') \
+        .lower()
 
 
 def parse_user_names(combined_user_names: str, *, separator: str=',') -> list[str]:
@@ -401,10 +402,15 @@ def save_media(driver: BrowserBase, user_name: str, user_dir: str, media_element
 
     media_urls: list[str] = []
 
+    msg = f'Found {len(media_elements)} posts for @{user_name}.'
+
+    info(msg)
+    print(msg, '\n')
+
     for index, medium in enumerate(media_elements, 1):
 
         try:
-            print(f"Collecting video URL {index}/{len(media_elements)} ...")
+            print(f"Collecting post URL {index}/{len(media_elements)} ...")
 
             # Get medium link
             medium_link = medium.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
