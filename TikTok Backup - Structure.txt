@@ -1,4 +1,4 @@
-tiktok_backup_username_timestamp/
+tiktok_username timestamp/
 ├── 01_profile/
 │   ├── 01_avatar/
 │   ├── 02_bio/
