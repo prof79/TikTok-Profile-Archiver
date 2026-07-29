@@ -1,13 +1,12 @@
-tiktok_username timestamp/
-├── 01_profile/
-│   ├── 01_avatar/
-│   ├── 02_bio/
-│   └── 03_stats/
-├── 02_pinned_videos/
-├── 03_playlists/
-├── 04_videos/
-├── 05_comments/
-├── 06_reposts/
-├── 07_favorites/
-├── 08_liked/
-└── 09_html_snapshot/
+@username YYYY-MM-DD_HHMM/
+├── avatar.jpeg
+├── bio.txt
+├── stats.txt
+├── videos/
+│   └── <tiktok_id>.mp4
+│   └── infos/
+│       └── <tiktok_id>.txt
+└── photos/
+    └── <original_filename>
+    └── infos/
+        └── <tiktok_id>.txt
