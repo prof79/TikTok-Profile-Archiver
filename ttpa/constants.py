@@ -17,6 +17,13 @@ __all__: list[str] = [
     'CAPTCHA_DRIVER_WAIT_TIMEOUT',
     'POST_ITEM_DRIVER_WAIT_TIMEOUT',
     'DRIVER_SCRIPT_TIMEOUT',
+    'VIDEO_DIR_NAME',
+    'VIDEO_INFOS_DIR_NAME',
+    'PHOTO_DIR_NAME',
+    'PHOTO_INFOS_DIR_NAME',
+    'AVATAR_FILE_NAME',
+    'BIO_FILE_NAME',
+    'STATS_FILE_NAME',
 ]
 
 from typing import Final
@@ -46,3 +53,12 @@ POST_ITEM_DRIVER_WAIT_TIMEOUT: Final[int] = 10
 
 # WebDriver Timeouts
 DRIVER_SCRIPT_TIMEOUT: Final[int] = 120
+
+VIDEO_DIR_NAME: Final[str] = "videos"
+VIDEO_INFOS_DIR_NAME: Final[str] = "video_infos"
+PHOTO_DIR_NAME: Final[str] = "photos"
+PHOTO_INFOS_DIR_NAME: Final[str] = "photo_infos"
+AVATAR_FILE_NAME: Final[str] = "avatar.png"
+BIO_FILE_NAME: Final[str] = "bio.txt"
+STATS_FILE_NAME: Final[str] = "stats.txt"
+
