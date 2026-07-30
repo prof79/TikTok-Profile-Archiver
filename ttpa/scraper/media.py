@@ -21,7 +21,6 @@ from ttpa.handlers.login_interests import handle_login_interests_dialog
 from ttpa.paths import (
     get_photo_metadata_path,
     get_photos_dir,
-    get_photos_infos_dir,
     get_video_metadata_path,
     get_video_path,
     get_videos_dir,
@@ -217,6 +216,7 @@ def _save_photos(
         return
 
     photos_path = get_photos_dir(user_dir)
+    photos_path.mkdir(parents=True, exist_ok=True)
 
     # Open slideshow in new tab
     original_window = driver.current_window_handle
@@ -253,8 +253,6 @@ def _save_photos(
     finally:
         # Save metadata
         metadata_path = get_photo_metadata_path(user_dir, tiktok_id)
-        photos_path.mkdir(parents=True, exist_ok=True)
-        get_photos_infos_dir(user_dir).mkdir(parents=True, exist_ok=True)
         metadata_path.write_text(f"Slideshow URL: {medium_link}\n", encoding='utf-8')
 
         # Close tab and return to main window
@@ -341,7 +339,9 @@ def _fetch_and_save_video_metadata(
 
         # Save metadata
         metadata_path = get_video_metadata_path(user_dir, tiktok_id)
-        get_video_infos_dir(user_dir).mkdir(parents=True, exist_ok=True)
+
+        metadata_path.mkdir(parents=True, exist_ok=True)
+
         metadata_path.write_text(
             f"@{meta_user_name}\n"
             f"·\n"
@@ -367,13 +367,13 @@ def _fetch_and_save_video_metadata(
         print(f"[red]Error getting video metadata: {str(e)}[/red]")
         # Save at least the URL if metadata fails
         metadata_path = get_video_metadata_path(user_dir, tiktok_id)
-        get_video_infos_dir(user_dir).mkdir(parents=True, exist_ok=True)
+        metadata_path.mkdir(parents=True, exist_ok=True)
         metadata_path.write_text(f"Video URL: {medium_link}\n", encoding='utf-8')
 
     finally:
         driver.close()
         driver.switch_to.window(original_window)
-        print('[green]Done.\n[/green]')
+        print('[green]Done.[/green]\n')
 
 
 def _save_failed_video_metadata(
@@ -393,7 +393,7 @@ def _save_failed_video_metadata(
     :type medium_link: str
     """
     metadata_path = get_video_metadata_path(user_dir, tiktok_id)
-    get_video_infos_dir(user_dir).mkdir(parents=True, exist_ok=True)
+    metadata_path.mkdir(parents=True, exist_ok=True)
     metadata_path.write_text(
         f"Video URL: {medium_link}\n"
         f"Status: Failed to download\n",
