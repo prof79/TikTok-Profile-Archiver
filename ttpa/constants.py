@@ -44,7 +44,7 @@ LOG_FILE: Final[str] = "TikTok-Profile-Archiver.log"
 
 USER_AGENT: Final[str] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
 
-URL_STRING_PATTERN: Final[str] = r'^(?:\S+ URL:)?\s*https://www.tiktok.com/@[^/]+/(?:video|photo)/(\d+)'
+URL_STRING_PATTERN: Final[str] = r'^(?:\bURL:)?\s*https://www.tiktok.com/@[^/]+/(?:video|photo)/(\d+)'
 URL_PATTERN: Final[Pattern[str]] = re.compile(URL_STRING_PATTERN, re.IGNORECASE)
 
 # WebDriver Customizations

@@ -23,14 +23,20 @@ def clean_user_name(user_name: str) -> str:
     :return: The cleaned user name in lowercase.
     :rtype: str
     """
-    return (
+    temp_user_name = (
         user_name
         .strip()
-        .replace('https://www.tiktok.com/', '')
-        .replace('/', '')
-        .lstrip('@')
         .lower()
+        .replace('https://www.tiktok.com/', '')
+        .lstrip('@')
     )
+
+    position = temp_user_name.find('/')
+
+    if position > -1:
+        temp_user_name = temp_user_name[:position]
+
+    return temp_user_name
 
 
 def parse_user_names(combined_user_names: str, *, separator: str = ',') -> list[str]:
@@ -45,7 +51,10 @@ def parse_user_names(combined_user_names: str, *, separator: str = ',') -> list[
     :return: A list of unique, cleaned user names.
     :rtype: list[str]
     """
-    user_names = [clean_user_name(name) for name in combined_user_names.split(separator) if name]
+    raw_user_names = combined_user_names.split(separator)
+
+    user_names = [clean_user_name(name) for name in raw_user_names if clean_user_name(name)]
+
     # Preserve order while removing duplicates
     return list(dict.fromkeys(user_names))
 
@@ -85,6 +94,7 @@ def get_tiktok_id_from_url(url: str) -> Optional[str]:
     :rtype: Optional[str]
     """
     match = re.match(URL_PATTERN, url)
+
     return match.group(1) if match else None
 
 
