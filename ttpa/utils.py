@@ -1,16 +1,17 @@
 """Utility functions for TikTok Profile Archiver."""
 
+
 import re
-import sys
+import mimetypes
+import requests
+
 from pathlib import Path
-from re import Pattern
-from typing import Final, Optional
 from urllib.parse import urlparse
+from typing import Optional
 
-USER_AGENT: Final[str] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+from ttpa.browser.base import BrowserBase
+from ttpa.constants import URL_PATTERN
 
-URL_STRING_PATTERN: Final[str] = r'^(?:\S+ URL:)?\s*https://www.tiktok.com/@[^/]+/(?:video|photo)/(\d+)'
-URL_PATTERN: Final[Pattern[str]] = re.compile(URL_STRING_PATTERN, re.IGNORECASE)
 
 
 def clean_user_name(user_name: str) -> str:
@@ -102,8 +103,6 @@ def save_url_to_file(base_path: Path, url: str, *, file_name: Optional[str] = No
     :return: The path to the saved file.
     :rtype: Path
     """
-    import mimetypes
-    import requests
 
     if file_name is None:
         file_name = get_file_name_from_url(url)
@@ -132,3 +131,46 @@ def clear_screen() -> None:
     import os
     os.system('cls' if os.name == 'nt' else 'clear')
 
+
+def _get_text_safe(driver: BrowserBase, by: str, value: str) -> str:
+    """Safely extracts text from an element, returning a default if not found.
+
+    :param driver: The Selenium browser instance.
+    :type driver: BrowserBase
+
+    :param by: The locator strategy.
+    :type by: str
+
+    :param value: The locator value.
+    :type value: str
+
+    :return: The text content of the element, or "0" if not found.
+    :rtype: str
+    """
+    try:
+        return driver.find_element(by, value).text
+
+    except Exception:
+        return "0"
+
+
+def _get_href_safe(driver: BrowserBase, by: str, value: str) -> str:
+    """Safely extracts href from an element, returning a default if not found.
+
+    :param driver: The Selenium browser instance.
+    :type driver: BrowserBase
+
+    :param by: The locator strategy.
+    :type by: str
+
+    :param value: The locator value.
+    :type value: str
+
+    :return: The href attribute of the element, or "None" if not found.
+    :rtype: str
+    """
+    try:
+        return driver.find_element(by, value).get_attribute('href') or "None"
+
+    except Exception:
+        return "None"

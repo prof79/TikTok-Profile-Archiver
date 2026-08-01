@@ -3,6 +3,9 @@
 __all__: list[str] = [
     'APP_NAME',
     'LOG_FILE',
+    'USER_AGENT',
+    'URL_STRING_PATTERN',
+    'URL_PATTERN',
     'WINDOW_SIZE',
     'KILL_BROWSER_TIMEOUT',
     'BROWSER_INIT_TIMEOUT',
@@ -26,11 +29,23 @@ __all__: list[str] = [
     'STATS_FILE_NAME',
 ]
 
+
+import re
+
+from re import Pattern
 from typing import Final
+
+
+# Constants
 
 APP_NAME: Final[str] = "TikTok Profile Archiver"
 
 LOG_FILE: Final[str] = "TikTok-Profile-Archiver.log"
+
+USER_AGENT: Final[str] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36'
+
+URL_STRING_PATTERN: Final[str] = r'^(?:\S+ URL:)?\s*https://www.tiktok.com/@[^/]+/(?:video|photo)/(\d+)'
+URL_PATTERN: Final[Pattern[str]] = re.compile(URL_STRING_PATTERN, re.IGNORECASE)
 
 # WebDriver Customizations
 WINDOW_SIZE: Final[tuple[int, int]] = (1600, 800)
@@ -54,11 +69,10 @@ POST_ITEM_DRIVER_WAIT_TIMEOUT: Final[int] = 10
 # WebDriver Timeouts
 DRIVER_SCRIPT_TIMEOUT: Final[int] = 120
 
+# Path Constants
+METADATA_DIR_NAME: Final[str] = "infos"
 VIDEO_DIR_NAME: Final[str] = "videos"
-VIDEO_INFOS_DIR_NAME: Final[str] = "video_infos"
 PHOTO_DIR_NAME: Final[str] = "photos"
-PHOTO_INFOS_DIR_NAME: Final[str] = "photo_infos"
 AVATAR_FILE_NAME: Final[str] = "avatar.png"
 BIO_FILE_NAME: Final[str] = "bio.txt"
 STATS_FILE_NAME: Final[str] = "stats.txt"
-

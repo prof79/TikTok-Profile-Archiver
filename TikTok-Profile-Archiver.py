@@ -31,13 +31,12 @@ from ttpa.browser.base import BrowserBase
 from ttpa.logging import setup_logging
 from ttpa.paths import create_backup_structure
 from ttpa.scraper.browser import (
-    clear_screen,
     initialize_browser,
     initialize_browser_for_user,
 )
 from ttpa.scraper.media import scrape_videos
 from ttpa.scraper.profile import scrape_profile_info
-from ttpa.utils import parse_user_names
+from ttpa.utils import clear_screen, parse_user_names
 
 
 # ─────────────────────────────────────────────

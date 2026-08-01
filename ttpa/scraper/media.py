@@ -1,6 +1,8 @@
 """Media (video and photo) scraping for TikTok Profile Archiver."""
 
+
 import time
+
 from pathlib import Path
 from typing import Tuple
 
@@ -19,10 +21,10 @@ from ttpa.constants import (
 )
 from ttpa.handlers.login_interests import handle_login_interests_dialog
 from ttpa.paths import (
-    get_photo_metadata_path,
+    get_photo_metadata_file_path,
     get_photos_dir,
-    get_video_metadata_path,
-    get_video_path,
+    get_video_metadata_file_path,
+    get_video_file_path,
     get_videos_dir,
 )
 from ttpa.scraper.downloader import download_video
@@ -98,7 +100,7 @@ def save_media(
                 print(f"[red]Could not extract TikTok ID from URL: {medium_link}[/red]")
                 continue
 
-            video_path = get_video_path(user_dir, tiktok_id)
+            video_path = get_video_file_path(user_dir, tiktok_id)
 
             # Ensure videos directory exists
             get_videos_dir(user_dir).mkdir(parents=True, exist_ok=True)
@@ -107,9 +109,10 @@ def save_media(
             download_success = download_video(medium_link, video_path)
 
             if download_success:
-                print(f"[green]Video {index} downloaded successfully.[/green]")
+                print(f"[green]Video {index} downloaded successfully.[/]\n")
+
             else:
-                print(f"[red]Error downloading video {index}.[/red]")
+                print(f"[red]Error downloading video {index}.[/]\n")
                 # Mark as private/unavailable
                 _save_failed_video_metadata(user_dir, tiktok_id, medium_link)
                 continue
@@ -118,7 +121,7 @@ def save_media(
             _fetch_and_save_video_metadata(driver, user_dir, tiktok_id, medium_link)
 
         except Exception as e:
-            print(f"[red]Error processing medium {index}: {str(e)}[/red]")
+            print(f"[red]Error processing medium {index}: {str(e)}[/]\n")
             continue
 
     return driver
@@ -252,13 +255,14 @@ def _save_photos(
 
     finally:
         # Save metadata
-        metadata_path = get_photo_metadata_path(user_dir, tiktok_id)
+        metadata_path = get_photo_metadata_file_path(user_dir, tiktok_id)
         metadata_path.write_text(f"Slideshow URL: {medium_link}\n", encoding='utf-8')
 
         # Close tab and return to main window
         driver.close()
         driver.switch_to.window(original_window)
-        print('[green]Done.\n[/green]')
+
+        print('[green]Done.[/]\n')
 
 
 def _fetch_and_save_video_metadata(
@@ -338,9 +342,7 @@ def _fetch_and_save_video_metadata(
             description = ''
 
         # Save metadata
-        metadata_path = get_video_metadata_path(user_dir, tiktok_id)
-
-        metadata_path.mkdir(parents=True, exist_ok=True)
+        metadata_path = get_video_metadata_file_path(user_dir, tiktok_id)
 
         metadata_path.write_text(
             f"@{meta_user_name}\n"
@@ -366,8 +368,7 @@ def _fetch_and_save_video_metadata(
     except Exception as e:
         print(f"[red]Error getting video metadata: {str(e)}[/red]")
         # Save at least the URL if metadata fails
-        metadata_path = get_video_metadata_path(user_dir, tiktok_id)
-        metadata_path.mkdir(parents=True, exist_ok=True)
+        metadata_path = get_video_metadata_file_path(user_dir, tiktok_id)
         metadata_path.write_text(f"Video URL: {medium_link}\n", encoding='utf-8')
 
     finally:
@@ -392,8 +393,8 @@ def _save_failed_video_metadata(
     :param medium_link: The URL of the video post.
     :type medium_link: str
     """
-    metadata_path = get_video_metadata_path(user_dir, tiktok_id)
-    metadata_path.mkdir(parents=True, exist_ok=True)
+    metadata_path = get_video_metadata_file_path(user_dir, tiktok_id)
+
     metadata_path.write_text(
         f"Video URL: {medium_link}\n"
         f"Status: Failed to download\n",

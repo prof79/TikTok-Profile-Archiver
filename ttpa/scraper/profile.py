@@ -1,8 +1,9 @@
 """Profile information scraping for TikTok Profile Archiver."""
 
-from pathlib import Path
-from typing import Optional
 
+import requests
+
+from pathlib import Path
 from rich import print
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
@@ -10,15 +11,11 @@ from selenium.webdriver.remote.webelement import WebElement
 from ttpa.browser.base import BrowserBase
 from ttpa.constants import USER_AGENT
 from ttpa.paths import (
-    get_avatar_path,
-    get_bio_path,
-    get_stats_path,
+    get_avatar_file_path,
+    get_bio_file_path,
+    get_stats_file_path,
 )
-
-try:
-    import requests
-except ImportError:
-    requests = None
+from ttpa.utils import _get_href_safe, _get_text_safe
 
 
 def scrape_profile_info(
@@ -56,12 +53,12 @@ def scrape_profile_info(
         website = _get_href_safe(driver, By.CSS_SELECTOR, "a[data-e2e='user-link']")
 
         # Save bio
-        bio_path = get_bio_path(user_dir)
+        bio_path = get_bio_file_path(user_dir)
         bio_path.parent.mkdir(parents=True, exist_ok=True)
         bio_path.write_text(f"{following}\nFollowing\n{followers}\nFollowers\n{likes}\nLikes\n{bio}\n{website}", encoding='utf-8')
 
         # Save stats
-        stats_path = get_stats_path(user_dir)
+        stats_path = get_stats_file_path(user_dir)
         stats_path.parent.mkdir(parents=True, exist_ok=True)
         stats_path.write_text(f"Following: {following}\nFollowers: {followers}\nLikes: {likes}", encoding='utf-8')
 
@@ -74,48 +71,6 @@ def scrape_profile_info(
     except Exception as e:
         print(f"[red]Error scraping profile information: {str(e)}\n[/red]")
         return False
-
-
-def _get_text_safe(driver: BrowserBase, by: str, value: str) -> str:
-    """Safely extracts text from an element, returning a default if not found.
-
-    :param driver: The Selenium browser instance.
-    :type driver: BrowserBase
-
-    :param by: The locator strategy.
-    :type by: str
-
-    :param value: The locator value.
-    :type value: str
-
-    :return: The text content of the element, or "0" if not found.
-    :rtype: str
-    """
-    try:
-        return driver.find_element(by, value).text
-    except Exception:
-        return "0"
-
-
-def _get_href_safe(driver: BrowserBase, by: str, value: str) -> str:
-    """Safely extracts href from an element, returning a default if not found.
-
-    :param driver: The Selenium browser instance.
-    :type driver: BrowserBase
-
-    :param by: The locator strategy.
-    :type by: str
-
-    :param value: The locator value.
-    :type value: str
-
-    :return: The href attribute of the element, or "None" if not found.
-    :rtype: str
-    """
-    try:
-        return driver.find_element(by, value).get_attribute('href') or "None"
-    except Exception:
-        return "None"
 
 
 def _download_avatar(driver: BrowserBase, user_dir: Path) -> None:
@@ -140,7 +95,7 @@ def _download_avatar(driver: BrowserBase, user_dir: Path) -> None:
 
         if avatar_url:
             print(f'[cyan]Found avatar URL: {avatar_url}[/cyan]')
-            avatar_path = get_avatar_path(user_dir)
+            avatar_path = get_avatar_file_path(user_dir)
             avatar_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Download with headers

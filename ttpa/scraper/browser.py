@@ -1,8 +1,12 @@
 """Browser initialization and management for TikTok Profile Archiver."""
 
+
+import time
+
 from typing import Optional
 
 from rich import print
+from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 
 from ttpa.browser import create_browser
@@ -15,7 +19,6 @@ from ttpa.constants import (
 from ttpa.handlers.captcha import detect_captcha
 from ttpa.handlers.login_interests import handle_login_interests_dialog
 from ttpa.utils import get_profile_url
-import time
 
 
 def initialize_browser(
@@ -105,9 +108,3 @@ def initialize_browser_for_user(
     except Exception as e:
         print(f"[red]Error loading page for @{user_name}: {str(e)}[/red]")
         return None
-
-
-def clear_screen() -> None:
-    """Clears the terminal screen in a platform-agnostic way."""
-    import os
-    os.system('cls' if os.name == 'nt' else 'clear')
