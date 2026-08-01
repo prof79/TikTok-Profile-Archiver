@@ -20,13 +20,12 @@ __all__: list[str] = [
     'CAPTCHA_DRIVER_WAIT_TIMEOUT',
     'POST_ITEM_DRIVER_WAIT_TIMEOUT',
     'DRIVER_SCRIPT_TIMEOUT',
-    'VIDEO_DIR_NAME',
-    'VIDEO_INFOS_DIR_NAME',
-    'PHOTO_DIR_NAME',
-    'PHOTO_INFOS_DIR_NAME',
     'AVATAR_FILE_NAME',
     'BIO_FILE_NAME',
     'STATS_FILE_NAME',
+    'METADATA_DIR_NAME',
+    'PHOTO_DIR_NAME',
+    'VIDEO_DIR_NAME',
 ]
 
 
@@ -70,9 +69,9 @@ POST_ITEM_DRIVER_WAIT_TIMEOUT: Final[int] = 10
 DRIVER_SCRIPT_TIMEOUT: Final[int] = 120
 
 # Path Constants
-METADATA_DIR_NAME: Final[str] = "infos"
-VIDEO_DIR_NAME: Final[str] = "videos"
-PHOTO_DIR_NAME: Final[str] = "photos"
 AVATAR_FILE_NAME: Final[str] = "avatar.png"
 BIO_FILE_NAME: Final[str] = "bio.txt"
 STATS_FILE_NAME: Final[str] = "stats.txt"
+METADATA_DIR_NAME: Final[str] = "infos"
+PHOTO_DIR_NAME: Final[str] = "photos"
+VIDEO_DIR_NAME: Final[str] = "videos"
