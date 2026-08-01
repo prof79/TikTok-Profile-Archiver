@@ -1,40 +1,42 @@
 """TikTok Profile Archiver - Main Application
 
 Archives TikTok user profiles including:
+
 - Profile information (avatar, bio, stats)
 - Videos (named by TikTok post ID)
 - Photos/slideshows (with original filenames)
 - Metadata for each post
 
-New folder structure per backup:
+Folder structure per backup:
+
 @username YYYY-MM-DD_HHMM/
 ├── avatar.png
 ├── bio.txt
 ├── stats.txt
 ├── videos/<tiktok_id>.mp4
 │   └── infos/<tiktok_id>.txt
-└── photos/<original_filename>
+└── photos/<original_filename>.jpeg
     └── infos/<tiktok_id>.txt
 """
+
 
 import argparse
 import subprocess
 import sys
 
-from pathlib import Path
 from typing import Optional
 
 from rich import print
 from rich.panel import Panel
 
 from ttpa.browser.base import BrowserBase
-from ttpa.logging import setup_logging
+from ttpa.logging import log_info, log_error, log_warning, setup_logging
 from ttpa.paths import create_backup_structure
 from ttpa.scraper.browser import (
     initialize_browser,
     initialize_browser_for_user,
 )
-from ttpa.scraper.media import scrape_videos
+from ttpa.scraper.media import scrape_media
 from ttpa.scraper.profile import scrape_profile_info
 from ttpa.utils import clear_screen, parse_user_names
 
@@ -114,14 +116,14 @@ def display_welcome_message() -> None:
         "  • Videos (named by TikTok post ID)\n"
         "  • Photos/slideshows (with original filenames)\n"
         "  • Metadata for each post\n\n"
-        "New folder structure:\n"
+        "Folder structure:\n\n"
         "  @username YYYY-MM-DD_HHMM/\n"
         "  ├── avatar.png\n"
         "  ├── bio.txt\n"
         "  ├── stats.txt\n"
         "  ├── videos/<tiktok_id>.mp4\n"
         "  │   └── infos/<tiktok_id>.txt\n"
-        "  └── photos/<original_filename>\n"
+        "  └── photos/<original_filename>.jpeg\n"
         "      └── infos/<tiktok_id>.txt",
         title="[bold cyan]TikTok Profile Archiver[/bold cyan]",
         border_style="cyan",
@@ -176,8 +178,8 @@ def process_user(
     :return: The (possibly updated) browser instance.
     :rtype: BrowserBase
     """
-    msg = f"[cyan]Processing account {user_index}/{total_users}: @{user_name}[/cyan]"
-    print(msg)
+    log_info(f"[cyan]Processing account {user_index}/{total_users}: @{user_name}[/]")
+    print()
 
     # Create backup directory structure
     user_dir = create_backup_structure(user_name)
@@ -191,41 +193,41 @@ def process_user(
     )
 
     if browser is None:
-        msg = f"[red]Failed to load TikTok page for @{user_name}, skipping to next account ...[/red]"
-        print(msg)
+        log_error(f"[red]Failed to load TikTok page for @{user_name}, skipping to next account ...[/]")
         return driver
 
     # Scrape profile information
     if not scrape_profile_info(browser, user_dir):
-        msg = f"[yellow]Warning: Failed to scrape profile information for @{user_name}.[/yellow]"
-        print(msg)
+        log_warning(f"[yellow]Warning: Failed to scrape profile information for @{user_name}.[/]")
 
     # Scrape videos/media
-    videos_ok, browser = scrape_videos(browser, user_name, user_dir)
+    videos_ok, browser = scrape_media(browser, user_name, user_dir)
 
     if not videos_ok:
-        msg = f"[red]Error: Failed to scrape videos for @{user_name}.[/red]"
-        print(msg)
+        log_error(f"[red]Error: Failed to scrape videos for @{user_name}.[/]")
 
-    msg = f"[green]Backup completed for @{user_name}.[/green]"
-    print(msg)
+    log_info(f"[green]Backup completed for @{user_name}.[/]")
+    print()
 
     return browser
 
 
 def main() -> None:
     """Main entry point for the TikTok Profile Archiver."""
+
     # Parse command-line arguments
     args = get_arguments()
 
     # Set up logging to file
     setup_logging()
 
+    log_info(f'[green]Program started with arguments: {args}[/]')
+
     # Clear the screen
     clear_screen()
 
     # Install required dependencies
-    print("[cyan]Checking and installing dependencies ...[/cyan]")
+    print("[cyan]Checking and installing dependencies ...[/]")
     install_dependencies()
 
     # Clear screen again after dependency installation
@@ -239,25 +241,23 @@ def main() -> None:
 
     if args.users is None:
         user_names = get_user_names_interactive()
+
     else:
         user_names = parse_user_names(args.users)
-        print(f"[cyan]Users specified: @{', @'.join(user_names)}[/cyan]")
+        print(f"[cyan]Users specified: @{', @'.join(user_names)}[/]")
         print()
 
     if not user_names:
-        print("[yellow]No user names provided. Exiting.[/yellow]")
+        log_warning("[yellow]No user names provided. Exiting.[/]")
         return
 
-    # Initialize browser
     try:
+        # Initialize browser
         driver = initialize_browser(browser_name=args.browser_name, headless=args.headless)
-    except RuntimeError as e:
-        print(f"[red]Error: {e}[/red]")
-        sys.exit(1)
 
-    try:
         # Process each user name
         for index, user_name in enumerate(user_names, 1):
+
             driver = process_user(
                 user_name,
                 index,
@@ -267,16 +267,22 @@ def main() -> None:
                 args.headless,
             )
 
+        log_info("[green]All accounts processed successfully![/]")
+
     except KeyboardInterrupt:
-        print("\n[yellow]Program aborted by user.[/yellow]")
+        print()
+        log_warning("[yellow]Program aborted by user.[/]")
 
     except Exception as e:
-        print(f"\n[red]An error occurred: {str(e)}[/red]")
+        print()
+        log_error(f"[red]An error occurred: {str(e)}[/]")
 
     finally:
         if driver:
             driver.quit()
-        print("\n[green]Program finished.[/green]")
+
+        print()
+        log_info("[green]Program finished.[/]")
 
 
 # ─────────────────────────────────────────────
@@ -286,4 +292,5 @@ def main() -> None:
 if __name__ == "__main__":
     print()
     main()
+    print()
     print()

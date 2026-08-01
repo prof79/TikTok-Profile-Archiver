@@ -1,8 +1,8 @@
-selenium
-yt-dlp
-requests
-Pillow
 customtkinter
+mmeutils
+Pillow
 pyinstaller
+requests
+selenium
 webdriver_manager
-pillow 
+yt-dlp

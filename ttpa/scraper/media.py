@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 
+from ttpa.browser import create_browser
 from ttpa.browser.base import BrowserBase
 from ttpa.constants import (
     COMMENTS_LOAD_TIMEOUT,
@@ -20,6 +21,8 @@ from ttpa.constants import (
     VIDEO_PAGE_LOAD_TIMEOUT,
 )
 from ttpa.handlers.login_interests import handle_login_interests_dialog
+from ttpa.handlers.tiktok_page import handle_tiktok_page_load
+from ttpa.logging import log_info, log_error, log_warning
 from ttpa.paths import (
     get_photo_metadata_file_path,
     get_photos_dir,
@@ -28,7 +31,7 @@ from ttpa.paths import (
     get_videos_dir,
 )
 from ttpa.scraper.downloader import download_video
-from ttpa.utils import get_tiktok_id_from_url, save_url_to_file
+from ttpa.utils import get_profile_url, get_tiktok_id_from_url, save_url_to_file
 
 
 def save_media(
@@ -55,19 +58,25 @@ def save_media(
     :rtype: BrowserBase
     """
     media_urls: list[str] = []
+
     msg = f'Found {len(media_elements)} posts for @{user_name}.'
+
     print(f"[green]{msg}[/green]\n")
 
     # First pass: collect all URLs
     for index, medium in enumerate(media_elements, 1):
         try:
             print(f"[cyan]Collecting post URL {index}/{len(media_elements)} ...[/cyan]")
+
             medium_link = medium.find_element(By.CSS_SELECTOR, "a").get_attribute("href")
+
             if medium_link is None:
                 print(f"[red]Error: Link URL for medium {index} not found.[/red]")
+
             else:
                 print(f"{medium_link}\n")
                 media_urls.append(medium_link)
+
         except Exception as e:
             print(f"[red]Error processing medium {index}: {str(e)}[/red]")
             continue
@@ -91,7 +100,7 @@ def save_media(
                 driver = new_driver
 
             if '/photo/' in medium_link.lower():
-                _save_photos(driver, user_dir, index, medium_link)
+                _save_photos(driver, user_dir, medium_link)
                 continue
 
             # Process video
@@ -127,12 +136,12 @@ def save_media(
     return driver
 
 
-def scrape_videos(
+def scrape_media(
     driver: BrowserBase,
     user_name: str,
     user_dir: Path,
 ) -> Tuple[bool, BrowserBase]:
-    """Scrapes all videos from a TikTok profile.
+    """Scrapes all videos and slideshows from a TikTok profile.
 
     :param driver: The Selenium browser instance.
     :type driver: BrowserBase
@@ -146,7 +155,7 @@ def scrape_videos(
     :return: A tuple of (success status, browser instance).
     :rtype: Tuple[bool, BrowserBase]
     """
-    print("[green]Scraping media ...[/green]\n")
+    print("[green]Scraping media ...[/]\n")
 
     try:
         # Wait for initial video grid to load
@@ -156,7 +165,7 @@ def scrape_videos(
         )
 
         # Scroll to load all videos
-        print("[cyan]Loading all media ...[/cyan]\n")
+        print("[cyan]Loading all media ...[/]\n")
 
         last_height = driver.execute_script("return document.documentElement.scrollHeight")
         driver.set_script_timeout(120)
@@ -166,10 +175,14 @@ def scrape_videos(
 
             while True:
                 driver.execute_script("window.scrollTo(0, document.documentElement.scrollHeight);")
+
                 time.sleep(SCROLLING_LOAD_TIMEOUT)
+
                 new_height = driver.execute_script("return document.documentElement.scrollHeight")
+
                 if new_height == last_height:
                     break
+
                 last_height = new_height
 
             progress.remove_task(scroll_task)
@@ -179,22 +192,26 @@ def scrape_videos(
         # Get all media elements
         media_elements = driver.find_elements(By.CSS_SELECTOR, "[data-e2e='user-post-item']")
         total_media = len(media_elements)
-        print(f"[cyan]Found {total_media} items total.\n[/cyan]")
+
+        log_info(f"[cyan]Found {total_media} items total.[/]")
+        print()
 
         driver = save_media(driver, user_name, user_dir, media_elements)
 
-        print("[green]Media scraped successfully!\n[/green]")
+        log_info("[green]Media scraped successfully![/]")
+        print()
+
         return (True, driver)
 
     except Exception as e:
-        print(f"[red]Error scraping media: {str(e)}\n[/red]")
+        log_error(f"[red]Error scraping media: {str(e)}[/red]")
+        print()
         return (False, driver)
 
 
 def _save_photos(
     driver: BrowserBase,
     user_dir: Path,
-    index: int,
     medium_link: str,
 ) -> None:
     """Saves photos from a slideshow post.
@@ -211,31 +228,35 @@ def _save_photos(
     :param medium_link: The URL of the slideshow post.
     :type medium_link: str
     """
-    print('[cyan]Medium is a photo/slideshow.\n[/cyan]')
+    print('[cyan]Medium is a photo/slideshow.[/]\n')
 
     tiktok_id = get_tiktok_id_from_url(medium_link)
+
     if tiktok_id is None:
-        print(f"[red]Could not extract TikTok ID from URL: {medium_link}[/red]")
+        log_error(f"[red]Could not extract TikTok ID from URL: {medium_link}[/]")
         return
 
     photos_path = get_photos_dir(user_dir)
-    photos_path.mkdir(parents=True, exist_ok=True)
 
     # Open slideshow in new tab
     original_window = driver.current_window_handle
     driver.execute_script("window.open('');")
     driver.switch_to.window(driver.window_handles[-1])
     driver.get(medium_link)
+
     time.sleep(VIDEO_PAGE_LOAD_TIMEOUT)
+
     handle_login_interests_dialog(driver)
 
-    print(f'[cyan]Fetching photos from {medium_link} ...\n[/cyan]')
+    print(f'[cyan]Fetching photos from {medium_link} ...[/]')
+    print()
 
     try:
         photos = driver.find_elements(By.CSS_SELECTOR, 'img[class*="--ImgPhotoSlide"]')
 
         for photo in photos:
             image_source = photo.get_attribute('src')
+
             if image_source is not None:
                 print(f'[cyan]Saving photo {image_source} ...[/cyan]')
                 save_url_to_file(photos_path, image_source)
@@ -244,9 +265,11 @@ def _save_photos(
         try:
             audio = driver.find_element(By.TAG_NAME, 'audio')
             audio_source = audio.get_attribute('src')
+
             if audio_source is not None:
                 print(f'[cyan]Saving audio {audio_source} ...[/cyan]')
                 save_url_to_file(photos_path, audio_source, file_name=tiktok_id)
+
         except Exception:
             pass
 
@@ -289,55 +312,69 @@ def _fetch_and_save_video_metadata(
     driver.execute_script("window.open('');")
     driver.switch_to.window(driver.window_handles[-1])
     driver.get(medium_link)
+
     time.sleep(VIDEO_PAGE_LOAD_TIMEOUT)
+
     handle_login_interests_dialog(driver)
 
-    print('[cyan]Fetching video metadata ...[/cyan]')
+    print('[cyan]Fetching video metadata ...[/]\n')
 
     try:
         # Get optional music info
         music = '-'
+
         try:
             music = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivMusicContainer']").text
+
         except Exception:
             pass
 
         # Check if video is private
         is_private = False
         privacy = "Public Video"
+
         try:
             driver.find_element(By.CSS_SELECTOR, "span[data-e2e='private-video']")
             is_private = True
             privacy = "Private Video"
+
         except Exception:
             pass
 
         # Get comments
         comment_count = 0
         comment_text = ''
+
         try:
             driver.find_element(By.ID, 'comments').click()
+
             time.sleep(COMMENTS_LOAD_TIMEOUT)
+
             comment_count_text = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCommentCountContainer']").text
             comment_count = int(comment_count_text.split(' ')[0])
+
             if comment_count > 0:
                 comment_text = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCommentListContainer']").text.strip()
+
         except Exception:
             pass
 
         # Get metadata
         try:
             container = driver.find_element(By.CSS_SELECTOR, "span[class*='--SpanOtherInfos']")
+
         except Exception:
             container = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivCreatorInfoContainer']")
 
         components = [part.strip() for part in container.text.split('·') if part.strip()]
+
         meta_user_name = components[0] if len(components) > 0 else 'Unknown'
         date = components[1] if len(components) > 1 else 'Unknown'
 
         try:
             description_element = driver.find_element(By.CSS_SELECTOR, "div[class*='--DivDescriptionContentContainer']")
             description = description_element.text.strip()
+
         except Exception:
             description = ''
 
@@ -366,7 +403,7 @@ def _fetch_and_save_video_metadata(
         )
 
     except Exception as e:
-        print(f"[red]Error getting video metadata: {str(e)}[/red]")
+        log_error(f"[red]Error getting video metadata: {str(e)}[/]")
         # Save at least the URL if metadata fails
         metadata_path = get_video_metadata_file_path(user_dir, tiktok_id)
         metadata_path.write_text(f"Video URL: {medium_link}\n", encoding='utf-8')
@@ -421,11 +458,10 @@ def _initialize_browser_for_user(
     :return: The initialized browser instance.
     :rtype: BrowserBase
     """
-    from ttpa.browser import create_browser
-    from ttpa.handlers.tiktok_page import handle_tiktok_page_load
-    from ttpa.utils import get_profile_url
 
     profile_url = get_profile_url(user_name)
     browser = create_browser(browser_name, headless=headless)
+
     handle_tiktok_page_load(browser, profile_url)
+
     return browser
